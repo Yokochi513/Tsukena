@@ -1,0 +1,23 @@
+# Tsukena スマホアプリ
+
+Flutter（Dart）で開発する、記録修正・確認待ちの分類・振り返り用のアプリ。
+サーバーの REST API を呼び出す構成とする（[基本設計](../docs/design.md)）。
+
+現在は Flutter 標準のカウンター画面とテストを含む初期ひな形で、家計簿の画面や API 通信は未実装。
+Android・iOS のひな形を生成済み。正式な対象 OS と配布方法は未決定。
+
+`app/` で次のコマンドを実行する。
+
+```sh
+flutter pub get
+flutter run
+```
+
+検証:
+
+```sh
+flutter analyze
+flutter test
+```
+
+iOS のビルドには macOS と Xcode が必要。

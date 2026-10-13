@@ -364,10 +364,12 @@ Tsukena/
 └── app/                       … スマホアプリ（Flutter プロジェクト）
     ├── pubspec.yaml           … アプリの設定・依存パッケージ
     ├── lib/                   … Dart の実装（UI・API 通信など）
-    └── test/                  … Flutter アプリのテスト
+    ├── test/                  … Flutter アプリのテスト
+    ├── android/               … Android 用のひな形
+    └── ios/                   … iOS 用のひな形
 ```
 
-対象 OS に応じたプラットフォーム用フォルダは、OS の決定後に `app/` 配下に生成する。
+Android・iOS 用のひな形を生成済み。正式な対象 OS と配布方法は残課題 R-5 で決める。
 
 ## 13. 残課題
 
