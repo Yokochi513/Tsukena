@@ -1,7 +1,7 @@
 import datetime
 import sqlite3
 
-from tsukena.model.expense_model import Expense
+from ..model.expense_model import Expense
 
 
 def _row_to_expense(row: sqlite3.Row) -> Expense:
