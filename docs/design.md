@@ -185,6 +185,42 @@ sequenceDiagram
 | 起動         | `config`         | 環境変数と設定ファイル（支払い手段の締め日のルールを含む）から設定値を読み込む |
 |              | `main`           | 各部品を組み立て、bot・API・定期実行を1つのプロセスで起動する                 |
 
+### 5.1 スマホアプリ（`app/lib`）
+
+機能ごとにフォルダを分け（`features/`）、画面（`pages/`）はそれらを組み合わせて作る。
+各機能は REST API（→ [10.2](#102-rest-apiスマホアプリ向け)）の資源1つに対応させる。
+
+#### features 一覧
+
+| feature          | 責務                                                                 | 使う API                                   | 主な entities                                  |
+| ---------------- | -------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------- |
+| `expense`        | 支出の記録の一覧・修正・削除と、確認待ちの記録のカテゴリ選択。**追加はしない** | `/transactions`、`/transactions/{id}`      | `Expense`、`ExpenseUpdate`                     |
+| `income`         | 収入の一覧・追加・修正・削除                                         | `/incomes`、`/incomes/{id}`                | `Income`、`IncomeInput`、`IncomeUpdate`          |
+| `month_summary`  | 月の収入合計・支出合計・収支・予算の残り・カテゴリ別の内訳の取得     | `/months/{YYYY-MM}/summary`                | `MonthlySummary`、`CategoryTotal`              |
+| `category`       | カテゴリの一覧・追加と、名前・絵文字・表示順の変更                   | `/categories`、`/categories/{id}`          | `Category`、`CategoryUpdate`                   |
+| `budget`         | 月の予算の取得・変更                                                 | `/budget`                                  | `Budget`                                       |
+| `import_failure` | 取り込めなかったメールの一覧                                         | `/import-failures`                         | `ImportFailure`                                |
+| `gmail_link`     | Gmail 連携の開始（Google の同意画面をブラウザで開く）                | `/oauth/google/start`                      | なし                                           |
+
+- 各 feature は、`entities/`（API の JSON と相互に変換するデータの形）・`repositories/`（API の呼び出し）・`widgets/`（その機能の部品）を持つ。
+- entities の項目名と意味は、サーバーの `model` の構造（`docs/module/model_design.md`）に揃える。`Expense` はサーバーの `Transaction` に当たる。
+- feature から別の feature を参照してよいのは `entities/` だけとする（例: `expense` の一覧でカテゴリの名前と絵文字を出すために `category` の `Category` を使う）。repositories と widgets を組み合わせるのは pages の役目である。
+- API のベース URL とトークンは、feature ごとに持たず共通の部品（`core/`）から渡す（→ 残課題 R-1）。
+
+#### pages 一覧
+
+| page                        | 内容                                                                 | 使う feature                                  |
+| --------------------------- | -------------------------------------------------------------------- | --------------------------------------------- |
+| `month_page`（起動時の画面）| 月を切り替えて、収入合計・支出合計・収支・予算の残り・カテゴリ別の内訳を見る。各一覧へ移る | `month_summary`                       |
+| `expense_list_page`         | 月の支出の明細（支払日の月で絞り込む）                               | `expense`、`category`                         |
+| `expense_edit_page`         | 支出1件の修正（金額・利用日・支払日・店名・カテゴリ）と削除          | `expense`、`category`                         |
+| `pending_page`              | 確認待ちの記録の一覧。カテゴリを選ぶと確定する                       | `expense`、`category`                         |
+| `income_list_page`          | 月の収入の一覧（入金日の月で絞り込む）                               | `income`                                      |
+| `income_edit_page`          | 収入1件の追加・修正（入金日・金額・メモ）と削除                      | `income`                                      |
+| `settings_page`             | 月の予算の変更、カテゴリの管理、Gmail 連携、取り込めなかったメールの確認 | `budget`、`category`、`gmail_link`、`import_failure` |
+
+- 支出を新しく追加する画面は作らない（→ [4.3](#43-スマホアプリ修正確認待ち振り返り収入)）。
+
 ## 6. 依存の向き
 
 ```mermaid
@@ -432,7 +468,14 @@ Tsukena/
 │   └── tsukena/               … test__{module}.py
 └── app/                       … スマホアプリ（Flutter プロジェクト）
     ├── pubspec.yaml           … アプリの設定・依存パッケージ
-    ├── lib/                   … Dart の実装（UI・API 通信など）
+    ├── lib/                   … Dart の実装（→ 5.1）
+    │   ├── main.dart
+    │   ├── core/              … API のベース URL・トークンなど共通の部品
+    │   ├── features/{feature}/
+    │   │   ├── entities/
+    │   │   ├── repositories/
+    │   │   └── widgets/
+    │   └── pages/             … 画面（{name}_page.dart）
     ├── test/                  … Flutter アプリのテスト
     ├── android/               … Android 用のひな形
     └── ios/                   … iOS 用のひな形

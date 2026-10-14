@@ -34,7 +34,7 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | `CategoryUpdate`    | カテゴリ1つに対する変更の指示                | 名前・絵文字・表示順のうち変えるもの                                     |
 | `Transaction`       | 保存済みの記録1件                            | `transactions` テーブルの1行と同じ項目                                   |
 | `TransactionUpdate` | 記録1件に対する修正の指示                    | 利用日・支払日・金額・店名・カテゴリのうち変えるもの                     |
-| `NewIncome`         | 保存する前の収入1件                          | 入金日・金額・メモ                                                       |
+| `IncomeInput`         | 保存する前の収入1件                          | 入金日・金額・メモ                                                       |
 | `Income`            | 保存済みの収入1件                            | `incomes` テーブルの1行と同じ項目                                        |
 | `IncomeUpdate`      | 収入1件に対する修正の指示                    | 入金日・金額・メモのうち変えるもの                                       |
 | `RecordResult`      | 1件の記録の試み                              | 記録の結果、保存した記録、カテゴリ、その月の予算の状況                   |
@@ -63,7 +63,7 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | 集計とまとめ（`repository` / `reporter` → `summary`、`repository` → `api`） | `MonthlySummary` / `WeeklySummary` / `CategoryTotal`     |
 | 取り込みの失敗（`importer` → `repository` / `summary`）      | `ImportFailure`                                          |
 | アプリからの修正（`api` → サービス層・`repository`）         | `TransactionUpdate` / `CategoryUpdate`                   |
-| アプリからの収入の追加・修正（`api` → `repository`）         | `NewIncome` / `IncomeUpdate`                             |
+| アプリからの収入の追加・修正（`api` → `repository`）         | `IncomeInput` / `IncomeUpdate`                             |
 | 永続化（`repository` ↔ 各モジュール）                        | `Transaction` / `Income` / `Category` / `MerchantRule` / `Settings` / `ImportFailure` / `NotificationLog` |
 
 
@@ -502,12 +502,12 @@ class TransactionUpdate:
   - 店名を変えたときの照合キーの作り直し、利用日だけを変えたときの支払日の計算し直し、カテゴリを選んだときの確定とルールの学習は持たない。これらは修正を受け持つサービス層が行う（→ [design.md 4.3](../design.md#4-処理の流れ)）。
 
 
-### NewIncome
+### IncomeInput
 
 - 定義
 ```python
 @dataclass(frozen=True)
-class NewIncome:
+class IncomeInput:
     received_date: date
     amount: int
     memo: str
