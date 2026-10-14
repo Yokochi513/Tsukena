@@ -1,1 +1,22 @@
+# エディタ
 .vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 秘密情報（トークン類は環境変数で渡す）
+.env
+.env.*
+
+# SQLite の一時ファイル
+*.db-journal
+*.db-wal
+*.db-shm
