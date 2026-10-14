@@ -24,18 +24,23 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | `Source`            | 記録の入口1つ                                | Gmail（`gmail`）／Discord（`discord`）の列挙                              |
 | `RecordOutcome`     | 1件の記録の試みの結果1つ                     | 保存した／重複で保存しなかった／削除済みで保存しなかった、の列挙         |
 | `MailMessage`       | Gmail のメール1通                            | メールの ID・送り主・件名・本文                                          |
-| `ParsedPayment`     | 記録する前の支払い1件                        | 日付・時刻・金額・店名・支払い手段・入口・重複排除キー                   |
+| `PaymentTiming`     | 支払い手段の支払い方1つ                      | 即時（`immediate`）／締めてから引き落とす（`card`）の列挙                 |
+| `PaymentRule`       | 支払い手段1つの締め日のルール                | 支払い手段・支払い方・締め日・引き落とし日・何か月後に引き落とすか        |
+| `ParsedPayment`     | 記録する前の支払い1件                        | 利用日・時刻・金額・店名・支払い手段・入口・重複排除キー                 |
 | `CashEntry`         | Discord のメッセージ1件を分解した結果        | メモと金額                                                               |
 | `Classification`    | 1件の支払いに対する分類の結果                | 照合キー・カテゴリ・状態                                                 |
 | `MerchantRule`      | 分類ルール1つ（照合キー1つ）                 | 照合キーとカテゴリの対応                                                 |
 | `Category`          | カテゴリ1つ                                  | 名前・絵文字・表示順                                                     |
 | `CategoryUpdate`    | カテゴリ1つに対する変更の指示                | 名前・絵文字・表示順のうち変えるもの                                     |
 | `Transaction`       | 保存済みの記録1件                            | `transactions` テーブルの1行と同じ項目                                   |
-| `TransactionUpdate` | 記録1件に対する修正の指示                    | 日付・金額・店名・カテゴリのうち変えるもの                               |
+| `TransactionUpdate` | 記録1件に対する修正の指示                    | 利用日・支払日・金額・店名・カテゴリのうち変えるもの                     |
+| `NewIncome`         | 保存する前の収入1件                          | 入金日・金額・メモ                                                       |
+| `Income`            | 保存済みの収入1件                            | `incomes` テーブルの1行と同じ項目                                        |
+| `IncomeUpdate`      | 収入1件に対する修正の指示                    | 入金日・金額・メモのうち変えるもの                                       |
 | `RecordResult`      | 1件の記録の試み                              | 記録の結果、保存した記録、カテゴリ、その月の予算の状況                   |
 | `BudgetStatus`      | 1つの月の予算の状況                          | 予算・支出合計・残り・新たに超えた閾値                                   |
 | `CategoryTotal`     | 1つの期間の、カテゴリ1つ分の支出合計         | カテゴリ（未分類なら無し）と金額                                         |
-| `MonthlySummary`    | 1つの月の集計                                | 支出合計・予算・残り・カテゴリ別の内訳                                   |
+| `MonthlySummary`    | 1つの月の集計                                | 収入合計・支出合計・収支・予算・残り・カテゴリ別の内訳                   |
 | `WeeklySummary`     | 1つの週（月曜〜日曜）の集計                  | 週の支出合計・カテゴリ別の内訳・今月の予算の残り・確認待ちの件数         |
 | `Settings`          | サーバーの設定一式                           | 月の予算・記録用チャンネル・自分の Discord ユーザー・Gmail ラベル名       |
 | `ImportFailure`     | 取り込めなかったメール1通                    | メールの ID・送り主・件名・理由・日時                                    |
@@ -52,12 +57,14 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | 現金のメッセージの解析結果（`cash_parser` → `discord_bot`）   | `CashEntry`                                              |
 | 現金の記録（`discord_bot` → `recorder`）                      | `ParsedPayment`                                          |
 | 分類（`classifier` → `recorder`）                            | `Classification`                                         |
+| 支払日の計算（`config` → `recorder` → `paid_date`）          | `PaymentRule`                                            |
 | 記録の結果（`recorder` → `importer` / `discord_bot`）        | `RecordResult`（`Transaction` / `Category` / `BudgetStatus` を含む） |
 | 予算の計算（`budget` → `recorder`）                          | `BudgetStatus`                                           |
 | 集計とまとめ（`repository` / `reporter` → `summary`、`repository` → `api`） | `MonthlySummary` / `WeeklySummary` / `CategoryTotal`     |
 | 取り込みの失敗（`importer` → `repository` / `summary`）      | `ImportFailure`                                          |
 | アプリからの修正（`api` → サービス層・`repository`）         | `TransactionUpdate` / `CategoryUpdate`                   |
-| 永続化（`repository` ↔ 各モジュール）                        | `Transaction` / `Category` / `MerchantRule` / `Settings` / `ImportFailure` / `NotificationLog` |
+| アプリからの収入の追加・修正（`api` → `repository`）         | `NewIncome` / `IncomeUpdate`                             |
+| 永続化（`repository` ↔ 各モジュール）                        | `Transaction` / `Income` / `Category` / `MerchantRule` / `Settings` / `ImportFailure` / `NotificationLog` |
 
 
 ## 依存関係
@@ -65,13 +72,13 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | モジュール    | 用途                                                       |
 | ------------- | ---------------------------------------------------------- |
 | `dataclasses` | 不変のデータ構造の定義（標準ライブラリ）                   |
-| `enum`        | 状態・入口・記録の結果の列挙（`StrEnum`）（標準ライブラリ） |
+| `enum`        | 状態・入口・記録の結果・支払い方の列挙（`StrEnum`）（標準ライブラリ） |
 | `datetime`    | 日付・時刻・日時の型（標準ライブラリ）                     |
 
 本モジュールは、すべてのモジュールから参照される（→ [design.md 6. 依存の向き](../design.md#6-依存の向き)）。
 そのため `tsukena` の他のモジュールには `config` も含めて依存せず、外部ライブラリも持ち込まない。
 どれか1つに依存すると、そのモジュールから本モジュールへの参照と合わせて循環が生じるためである。
-純粋ロジックのモジュール（`cash_parser` / `mail_parser` / `budget` / `summary` など）を、外部ライブラリなしで単体テストできるようにする狙いもある。
+純粋ロジックのモジュール（`cash_parser` / `mail_parser` / `paid_date` / `budget` / `summary` など）を、外部ライブラリなしで単体テストできるようにする狙いもある。
 
 REST API の入出力の形（`FastAPI` のスキーマ）は本モジュールに置かず、API 側（`api`）で本モジュールの構造との間で変換する。
 本モジュールの構造を API の入出力にそのまま使うと、API の項目名やバリデーションの都合を変えるたびに、モジュール間の約束も変わってしまうためである。
@@ -163,6 +170,58 @@ class RecordOutcome(StrEnum):
   - DB には保存しない。記録（`recorder`）から呼び出し元への受け渡しだけに使う。
 
 
+### PaymentTiming
+
+- 定義
+```python
+class PaymentTiming(StrEnum):
+    IMMEDIATE = "immediate"
+    CARD = "card"
+```
+
+- フィールド一覧
+
+| フィールド名 | 型  | 必須 | 内容                                                         |
+| ------------ | --- | ---- | ------------------------------------------------------------ |
+| `IMMEDIATE`  | str | 〇   | 即時に支払う。現金や、残高・口座から即時に引き落とす決済     |
+| `CARD`       | str | 〇   | 締め日で締めて、後日まとめて引き落とす。クレジットカードなど |
+
+- 不変条件
+  - 1つの値が、支払い手段1つの支払い方を表す。
+  - 値の文字列は設定ファイル（`config.toml`）の `timing` の値と一致する（→ [design.md 7.1 支払日の決め方](../design.md#71-支払日の決め方)）。
+
+
+### PaymentRule
+
+- 定義
+```python
+@dataclass(frozen=True)
+class PaymentRule:
+    payment_method: str
+    timing: PaymentTiming
+    closing_day: int | None = None
+    withdrawal_day: int | None = None
+    withdrawal_month_offset: int | None = None
+```
+
+- フィールド一覧
+
+| フィールド名              | 型             | 必須 | 内容                                                                 |
+| ------------------------- | -------------- | ---- | -------------------------------------------------------------------- |
+| `payment_method`          | str            | 〇   | 支払い手段（`楽天カード`、`現金` など）                              |
+| `timing`                  | PaymentTiming  | 〇   | 支払い方                                                             |
+| `closing_day`             | int \| None    | -    | 締め日（1〜31。31 は月末を表す）。即時なら `None`                    |
+| `withdrawal_day`          | int \| None    | -    | 引き落とし日（1〜31。31 は月末を表す）。即時なら `None`              |
+| `withdrawal_month_offset` | int \| None    | -    | 締めた月の何か月後に引き落とすか（1以上）。即時なら `None`           |
+
+- 不変条件
+  - 1件が、支払い手段1つの締め日のルールを表す。同じ支払い手段のルールは2つ存在しない。
+  - 支払い手段（`payment_method`）は空文字にならず、`ParsedPayment` / `Transaction` の支払い手段と同じ文字列で照合する。
+  - 支払い方（`timing`）が即時（`IMMEDIATE`）であることと、締め日・引き落とし日・何か月後かの3つがすべて `None` であることは同値である。締めてから引き落とす（`CARD`）ときは、3つとも `None` でない。
+  - DB には保存しない。設定の読み込み（`config`）が設定ファイルから作る。
+  - 本構造は支払日の計算の規則を持たない。計算は `paid_date` の設計書と [design.md 7.1 支払日の決め方](../design.md#71-支払日の決め方) で定める。
+
+
 ### MailMessage
 
 - 定義
@@ -188,7 +247,7 @@ class MailMessage:
   - 1件が Gmail のメール1通を表す。
   - メールの ID（`message_id`）は空文字にならない。
   - 送り主（`sender`）からメールアドレスを取り出して解析器を選ぶのはメールの解析（`mail_parser`）であり、本構造は取り出し済みの値を持たない。
-  - 受信日時を持たない。支払いの日付・時刻を受信時刻で埋めない（→ [design.md 7. データフロー](../design.md#7-データフロー)）ため、解析に渡さない。
+  - 受信日時を持たない。支払いの利用日・時刻を受信時刻で埋めない（→ [design.md 7. データフロー](../design.md#7-データフロー)）ため、解析に渡さない。
 
 
 ### ParsedPayment
@@ -210,8 +269,8 @@ class ParsedPayment:
 
 | フィールド名     | 型            | 必須 | 内容                                                                       |
 | ---------------- | ------------- | ---- | -------------------------------------------------------------------------- |
-| `occurred_date`  | date          | 〇   | 支払った日（JST）                                                          |
-| `occurred_time`  | time \| None  | -    | 支払った時刻（JST、時と分）。分からなければ `None`                         |
+| `occurred_date`  | date          | 〇   | 利用日。使った日（JST）                                                    |
+| `occurred_time`  | time \| None  | -    | 使った時刻（JST、時と分）。分からなければ `None`                           |
 | `amount`         | int           | 〇   | 金額（円）                                                                 |
 | `merchant`       | str           | 〇   | 店名、または bot に送ったメモ。生の文字列のまま持つ。無ければ空文字        |
 | `payment_method` | str           | 〇   | 支払い手段（`楽天カード`、`現金` など）                                    |
@@ -227,6 +286,7 @@ class ParsedPayment:
   - 支払い手段（`payment_method`）は空文字にならない。
   - 重複排除キー（`source_ref`）は、Gmail なら `gmail:{message_id}:{メール内の連番}`、Discord なら `discord:{message_id}` の形であり、先頭の部分は入口（`source`）の値と一致する。連番の振り方は `mail_parser` の設計書で定める。
   - 同じ支払いからは常に同じ重複排除キーが作られる。
+  - 支払日は持たない。支払日は記録（`recorder`）が、支払い手段のルール（`PaymentRule`）を使って計算する。解析するモジュールに締め日の知識を持たせないためである。
 
 
 ### CashEntry
@@ -250,7 +310,7 @@ class CashEntry:
   - 1件が、Discord のメッセージ1件を分解した結果を表す。1件のメッセージから複数件は作らない。
   - 金額（`amount`）は1以上の整数である。解析できないメッセージ（金額が無い、0円以下など）では本構造を作らない。
   - メモ（`memo`）は正規化しない。メッセージのどこまでをメモとするか、前後の空白をどう扱うかは `cash_parser` の設計書で定める。
-  - 日付・時刻・支払い手段・重複排除キーは持たない。これらは Discord の bot（`discord_bot`）がメッセージから決め、記録する前の支払い（`ParsedPayment`）に入れる。
+  - 利用日・時刻・支払い手段・重複排除キーは持たない。これらは Discord の bot（`discord_bot`）がメッセージから決め、記録する前の支払い（`ParsedPayment`）に入れる。
 
 
 ### Classification
@@ -366,6 +426,7 @@ class Transaction:
     id: int
     occurred_date: date
     occurred_time: time | None
+    paid_date: date
     amount: int
     merchant: str
     merchant_key: str
@@ -383,8 +444,9 @@ class Transaction:
 | フィールド名     | 型            | 必須 | 内容                                                   |
 | ---------------- | ------------- | ---- | ------------------------------------------------------ |
 | `id`             | int           | 〇   | 記録の ID                                              |
-| `occurred_date`  | date          | 〇   | 支払った日（JST）                                      |
-| `occurred_time`  | time \| None  | -    | 支払った時刻（JST、時と分）。分からなければ `None`     |
+| `occurred_date`  | date          | 〇   | 利用日。使った日（JST）                                |
+| `occurred_time`  | time \| None  | -    | 使った時刻（JST、時と分）。分からなければ `None`       |
+| `paid_date`      | date          | 〇   | 支払日。口座などからお金が出ていく日（JST）            |
 | `amount`         | int           | 〇   | 金額（円）                                             |
 | `merchant`       | str           | 〇   | 店名・メモ（生の文字列）。無ければ空文字               |
 | `merchant_key`   | str           | 〇   | 正規化した店名・メモ。無ければ空文字                   |
@@ -400,6 +462,7 @@ class Transaction:
   - 1件が、保存済みの記録1件（`transactions` テーブルの1行）を表す。
   - 金額（`amount`）は1以上の整数である。
   - 時刻（`occurred_time`）は秒とマイクロ秒を0とし、タイムゾーンを持たない。
+  - 支払日（`paid_date`）は利用日（`occurred_date`）より前にならない。記録したときはルールから計算した値であり、アプリで直したあとは直した値である。
   - 照合キー（`merchant_key`）は、店名・メモ（`merchant`）を `normalize` に通した結果と一致する。
   - 状態が確定（`CONFIRMED`）であることと、カテゴリ（`category_id`）が `None` でないことは同値である。
   - 重複排除キー（`source_ref`）は記録全体で一意であり、先頭の部分は入口（`source`）の値と一致する。
@@ -414,6 +477,7 @@ class Transaction:
 @dataclass(frozen=True)
 class TransactionUpdate:
     occurred_date: date | None = None
+    paid_date: date | None = None
     amount: int | None = None
     merchant: str | None = None
     category_id: int | None = None
@@ -423,7 +487,8 @@ class TransactionUpdate:
 
 | フィールド名    | 型            | 必須 | 内容                                                 |
 | --------------- | ------------- | ---- | ---------------------------------------------------- |
-| `occurred_date` | date \| None  | -    | 新しい日付。変えないなら `None`                      |
+| `occurred_date` | date \| None  | -    | 新しい利用日。変えないなら `None`                    |
+| `paid_date`     | date \| None  | -    | 新しい支払日。変えないなら `None`                    |
 | `amount`        | int \| None   | -    | 新しい金額（円）。変えないなら `None`                |
 | `merchant`      | str \| None   | -    | 新しい店名・メモ（生の文字列）。変えないなら `None`  |
 | `category_id`   | int \| None   | -    | 選んだカテゴリの ID。変えないなら `None`             |
@@ -433,8 +498,92 @@ class TransactionUpdate:
   - `None` は「変えない」を表す。すべてが `None` の指示は、何も変えない指示である。
   - 金額（`amount`）を入れる場合は1以上の整数である。
   - カテゴリを未設定に戻す指示は表せない。確定の記録を確認待ちに戻す経路が無いためである（→ [design.md 8. 分類の方針](../design.md#8-分類の方針)）。
-  - 修正できる項目は、アプリで修正できる項目（金額・日付・店名・カテゴリ）に限る（→ [design.md 4.3](../design.md#4-処理の流れ)）。時刻・支払い手段・入口・重複排除キーは修正できない。
-  - 店名を変えたときの照合キーの作り直し、カテゴリを選んだときの確定とルールの学習は持たない。これらは修正を受け持つサービス層が行う。
+  - 修正できる項目は、アプリで修正できる項目（金額・利用日・支払日・店名・カテゴリ）に限る（→ [design.md 4.3](../design.md#4-処理の流れ)）。時刻・支払い手段・入口・重複排除キーは修正できない。
+  - 店名を変えたときの照合キーの作り直し、利用日だけを変えたときの支払日の計算し直し、カテゴリを選んだときの確定とルールの学習は持たない。これらは修正を受け持つサービス層が行う（→ [design.md 4.3](../design.md#4-処理の流れ)）。
+
+
+### NewIncome
+
+- 定義
+```python
+@dataclass(frozen=True)
+class NewIncome:
+    received_date: date
+    amount: int
+    memo: str
+```
+
+- フィールド一覧
+
+| フィールド名    | 型   | 必須 | 内容                                                   |
+| --------------- | ---- | ---- | ------------------------------------------------------ |
+| `received_date` | date | 〇   | 入金日（JST）                                          |
+| `amount`        | int  | 〇   | 金額（円）                                             |
+| `memo`          | str  | 〇   | メモ（`給与` など）。生の文字列のまま持つ。無ければ空文字 |
+
+- 不変条件
+  - 1件が、アプリから入力された、まだ保存していない収入1件を表す。
+  - 金額（`amount`）は1以上の整数である。
+  - 収入はアプリからしか入らないため、入口・重複排除キーは持たない（→ [ADR-0005](../adr/0005-income-manual-entry-from-app.md)）。
+  - カテゴリは持たない。収入は分類しない。
+
+
+### Income
+
+- 定義
+```python
+@dataclass(frozen=True)
+class Income:
+    id: int
+    received_date: date
+    amount: int
+    memo: str
+    created_at: datetime
+    updated_at: datetime
+```
+
+- フィールド一覧
+
+| フィールド名    | 型       | 必須 | 内容                                   |
+| --------------- | -------- | ---- | -------------------------------------- |
+| `id`            | int      | 〇   | 収入の ID                              |
+| `received_date` | date     | 〇   | 入金日（JST）                          |
+| `amount`        | int      | 〇   | 金額（円）                             |
+| `memo`          | str      | 〇   | メモ（生の文字列）。無ければ空文字     |
+| `created_at`    | datetime | 〇   | 作成日時（JST、タイムゾーン付き）      |
+| `updated_at`    | datetime | 〇   | 更新日時（JST、タイムゾーン付き）      |
+
+- 不変条件
+  - 1件が、保存済みの収入1件（`incomes` テーブルの1行）を表す。支出の記録（`Transaction`）とは別の構造であり、支出の集計・予算の判定には含めない。
+  - 金額（`amount`）は1以上の整数である。
+  - 更新日時（`updated_at`）は作成日時（`created_at`）より前にならない。
+  - 削除済みの収入は本構造で表さない（削除は物理削除である）。
+
+
+### IncomeUpdate
+
+- 定義
+```python
+@dataclass(frozen=True)
+class IncomeUpdate:
+    received_date: date | None = None
+    amount: int | None = None
+    memo: str | None = None
+```
+
+- フィールド一覧
+
+| フィールド名    | 型            | 必須 | 内容                                        |
+| --------------- | ------------- | ---- | ------------------------------------------- |
+| `received_date` | date \| None  | -    | 新しい入金日。変えないなら `None`           |
+| `amount`        | int \| None   | -    | 新しい金額（円）。変えないなら `None`       |
+| `memo`          | str \| None   | -    | 新しいメモ（生の文字列）。変えないなら `None` |
+
+- 不変条件
+  - 1件が、収入1件に対する修正の指示を表す。対象の収入の ID は本構造に含めず、呼び出す側が別に渡す。
+  - `None` は「変えない」を表す。すべてが `None` の指示は、何も変えない指示である。
+  - 金額（`amount`）を入れる場合は1以上の整数である。
+  - メモを空にする指示は、空文字で表す。
 
 
 ### RecordResult
@@ -456,14 +605,14 @@ class RecordResult:
 | `outcome`     | RecordOutcome          | 〇   | 記録の結果                                                               |
 | `transaction` | Transaction \| None    | -    | 保存した記録。保存しなかったときは `None`                                |
 | `category`    | Category \| None       | -    | 保存した記録のカテゴリ。未設定のとき、または保存しなかったときは `None`  |
-| `budget`      | BudgetStatus \| None   | -    | 保存した記録の日付が属する月の、保存後の予算の状況。保存しなかったときは `None` |
+| `budget`      | BudgetStatus \| None   | -    | 保存した記録の支払日が属する月の、保存後の予算の状況。保存しなかったときは `None` |
 
 - 不変条件
   - 1件が、支払い1件を記録しようとした1回の結果を表す。
   - 結果（`outcome`）が保存した（`RECORDED`）であることと、保存した記録（`transaction`）と予算の状況（`budget`）がともに `None` でないことは同値である。
   - 保存しなかった（`DUPLICATE` / `DELETED`）ときは、保存した記録・カテゴリ・予算の状況がすべて `None` である。
   - カテゴリ（`category`）は、保存した記録のカテゴリの ID が `None` でないときに限り入り、その ID（`category.id`）は記録のカテゴリの ID と一致する。bot の返事にカテゴリの名前と絵文字を出すために、ID だけでなくカテゴリそのものを持つ。
-  - 予算の状況の月（`budget.month`）は、保存した記録の日付（`occurred_date`）が属する月と一致する。
+  - 予算の状況の月（`budget.month`）は、保存した記録の支払日（`paid_date`）が属する月と一致する（→ [ADR-0004](../adr/0004-monthly-totals-by-paid-date.md)）。
 
 
 ### BudgetStatus
@@ -485,7 +634,7 @@ class BudgetStatus:
 | --------------- | ---------------- | ---- | ---------------------------------------------------------- |
 | `month`         | str              | 〇   | 対象の月（`YYYY-MM`）                                      |
 | `budget`        | int              | 〇   | 月の予算（円）                                             |
-| `spent`         | int              | 〇   | その月の支出合計（円）                                     |
+| `spent`         | int              | 〇   | その月の支出合計（円）。支払日がその月に属する記録の金額の和 |
 | `remaining`     | int              | 〇   | 残りの金額（円）。予算を超えていれば負の数                 |
 | `newly_crossed` | tuple[int, ...]  | 〇   | 今回新たに超えた閾値（予算に対する百分率。例: `80`）。無ければ空の列 |
 
@@ -495,7 +644,7 @@ class BudgetStatus:
   - 支出合計は0以上である。
   - 新たに超えた閾値（`newly_crossed`）は、小さい順に並び、同じ値を2度含まない。
   - 閾値の値（80 / 100）と、「新たに」をどう判定するかは持たない。どちらも `budget` の設計書で定める。
-  - 前月以前の記録では閾値を判定しないため、そのときの新たに超えた閾値は空の列である（→ [design.md 4.4 通知](../design.md#44-通知)）。
+  - 支払日が前月以前の記録では閾値を判定しないため、そのときの新たに超えた閾値は空の列である。支払日が来月以降の記録では判定する（→ [design.md 4.4 通知](../design.md#44-通知)）。
 
 
 ### CategoryTotal
@@ -529,7 +678,9 @@ class CategoryTotal:
 @dataclass(frozen=True)
 class MonthlySummary:
     month: str
+    income_total: int
     total: int
+    balance: int
     budget: int
     remaining: int
     by_category: tuple[CategoryTotal, ...]
@@ -540,15 +691,19 @@ class MonthlySummary:
 | フィールド名  | 型                          | 必須 | 内容                                       |
 | ------------- | --------------------------- | ---- | ------------------------------------------ |
 | `month`       | str                         | 〇   | 対象の月（`YYYY-MM`）                      |
+| `income_total`| int                         | 〇   | 月の収入合計（円）                         |
 | `total`       | int                         | 〇   | 月の支出合計（円）                         |
+| `balance`     | int                         | 〇   | 収支（円）。収入合計から支出合計を引いた値。負の数がありうる |
 | `budget`      | int                         | 〇   | 月の予算（円）                             |
 | `remaining`   | int                         | 〇   | 残りの金額（円）。予算を超えていれば負の数 |
 | `by_category` | tuple[CategoryTotal, ...]   | 〇   | カテゴリ別の内訳。記録が無ければ空の列     |
 
 - 不変条件
-  - 1件が、1つの月（日付が JST でその月に属する記録すべて）の集計を表す。
+  - 1件が、1つの月（支払日が JST でその月に属する記録すべて）の集計を表す。利用日では数えない（→ [ADR-0004](../adr/0004-monthly-totals-by-paid-date.md)）。
+  - 収入合計（`income_total`）は、入金日が JST でその月に属する収入（`Income`）の金額の和である。収入が無い月は0である。
   - 支出合計（`total`）は、カテゴリ別の内訳の金額の和と一致する。記録が無い月の支出合計は0である。
-  - 残り（`remaining`）は、予算（`budget`）から支出合計を引いた値と一致する。
+  - 収支（`balance`）は、収入合計から支出合計を引いた値と一致する。
+  - 残り（`remaining`）は、予算（`budget`）から支出合計を引いた値と一致する。収入は予算の残りに影響しない。
   - カテゴリ別の内訳の並びは `CategoryTotal` の並べ方に従う。
   - 前月との差は持たない。月のまとめでは、文面の組み立て（`summary`）で2か月分の集計から差を計算する。
   - API の月の集計（`/months/{YYYY-MM}/summary`）と、月のまとめの通知の両方で使う。
@@ -574,13 +729,14 @@ class WeeklySummary:
 | ----------------- | -------------------------- | ---- | -------------------------------------------------------- |
 | `week_start`      | date                       | 〇   | 週の初日（月曜）                                         |
 | `week_end`        | date                       | 〇   | 週の最終日（日曜）                                       |
-| `total`           | int                        | 〇   | 週の支出合計（円）                                       |
+| `total`           | int                        | 〇   | 週の支出合計（円）。利用日がその週に属する記録の金額の和 |
 | `by_category`     | tuple[CategoryTotal, ...]  | 〇   | 週のカテゴリ別の内訳。記録が無ければ空の列               |
-| `month_remaining` | int                        | 〇   | 週の最終日が属する月の、予算の残り（円）。負の数がありうる |
+| `month_remaining` | int                        | 〇   | 週の最終日が属する月の、予算の残り（円。支払日で数える）。負の数がありうる |
 | `pending_count`   | int                        | 〇   | 集計した時点で確認待ちになっている記録の件数             |
 
 - 不変条件
-  - 1件が、1つの週（月曜〜日曜、JST）の集計を表す。
+  - 1件が、1つの週（月曜〜日曜、JST）の集計を表す。週の記録は利用日で数える。支払日で数えると、引き落とし日のある週に支出がまとめて出てしまうためである（→ [ADR-0004](../adr/0004-monthly-totals-by-paid-date.md)）。
+  - 予算の残り（`month_remaining`）だけは、月の集計と同じく支払日で数える。
   - 週の初日（`week_start`）は月曜、最終日（`week_end`）はその6日後の日曜である。週が月をまたいでも分けない。
   - 支出合計（`total`）は、カテゴリ別の内訳の金額の和と一致する。
   - カテゴリ別の内訳は上位3つに絞らず、すべてを持つ。絞り込みは文面を組み立てる `summary` が行う。並びは `CategoryTotal` の並べ方に従う。
@@ -612,6 +768,7 @@ class Settings:
   - 1件が、サーバーの設定一式（`settings` テーブルの内容全体）を表す。設定は1組だけ存在する。
   - 月の予算（`monthly_budget`）は1以上の整数である。予算は全体で1つだけであり、カテゴリごとの予算は持たない。
   - Gmail のラベル名（`gmail_label`）は空文字にならない。
+  - 支払い手段の締め日のルールは持たない。ルールは設定ファイルに書き、`PaymentRule` として読む（→ [design.md 7.1 支払日の決め方](../design.md#71-支払日の決め方)）。
   - 秘密情報（Discord のトークン、API のトークン、Google のクライアント情報と認証情報）は持たない。これらは設定の読み込み（`config`）で環境変数とサーバー上のファイルから読む（→ [design.md 11. 非機能](../design.md#11-非機能)）。
 
 
