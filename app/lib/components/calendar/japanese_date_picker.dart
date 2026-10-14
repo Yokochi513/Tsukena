@@ -97,6 +97,7 @@ class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
                         : null,
                     icon: const Icon(Icons.chevron_left),
                   ),
+                  // TODO: 将来的にはホイールピッカーにして飛べるようにしたい。
                   Expanded(
                     child: Text(
                       '${_month.year}年${_month.month}月',
