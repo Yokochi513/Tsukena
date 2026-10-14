@@ -48,10 +48,13 @@ class _JapaneseDatePickerDialog extends StatefulWidget {
 class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
   late DateTime _month;
 
+  DateTime? _selectedDate;
+
   @override
   void initState() {
     super.initState();
     _month = DateTime(widget.initialDate.year, widget.initialDate.month);
+    _selectedDate = widget.initialDate;
   }
 
   bool _isInRange(DateTime date) {
@@ -111,11 +114,13 @@ class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
               const SizedBox(height: 12),
               CalenderMonthGrid(
                 month: _month,
-                selectedDate: widget.initialDate,
+                selectedDate: _selectedDate,
                 firstDate: widget.firstDate,
                 lastDate: widget.lastDate,
                 onSelected: (date) {
-                  Navigator.of(context).pop(date);
+                  setState(() {
+                    _selectedDate = date;
+                  });
                 },
               ),
               const SizedBox(height: 12),
@@ -124,9 +129,18 @@ class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
                 children: [
                   TextButton(
                     onPressed: _isInRange(today)
-                        ? () => Navigator.of(context).pop(today)
+                        ? () {
+                            setState(() {
+                              _selectedDate = today;
+                              _month = DateTime(today.year, today.month);
+                            });
+                          }
                         : null,
                     child: const Text('今日'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(_selectedDate),
+                    child: const Text('決定'),
                   ),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
