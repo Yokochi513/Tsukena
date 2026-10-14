@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tsukena/features/expense/entities/expense_input.dart';
+import 'package:tsukena/features/expense/entities/expense.dart';
 
 class ExpensePage extends StatefulWidget {
   const ExpensePage({super.key});
@@ -9,7 +9,7 @@ class ExpensePage extends StatefulWidget {
 }
 
 class _ExpensePageState extends State<ExpensePage> {
-  final fieldInput = ExpenseInput();
+  final fieldInput = Expense();
 
   @override
   void initState() {
