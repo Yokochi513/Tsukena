@@ -1,0 +1,10 @@
+[project]
+name = "tsukena"
+version = "0.1.0"
+description = "Tsukena API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.143.0",
+    "uvicorn>=0.54.0",
+]

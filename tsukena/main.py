@@ -1,14 +1,12 @@
-from contextlib import closing
+import uvicorn
 
+from .api.app import create_app
 from .config import load_db_path
-from .repositories.database import connect
-from .repositories.expense_repository import list_expenses
 
 
 def main() -> None:
-    with closing(connect(load_db_path())) as conn:
-        for expense in list_expenses(conn):
-            print(expense)
+    app = create_app(load_db_path())
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":
