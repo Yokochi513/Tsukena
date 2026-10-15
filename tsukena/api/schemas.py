@@ -1,10 +1,51 @@
 import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from ..model.category_model import Category, CategoryInput
+from ..model.enum.source import Source
+from ..model.enum.status import Status
 from ..model.expense_model import Expense
 from ..model.income_model import Income, IncomeInput
+from ..model.transaction_model import Transaction
+
+
+class TransactionOut(BaseModel):
+    # merchant_key と source_ref はサーバーの内部でだけ使うため返さない
+    id: int
+    occurred_date: datetime.date
+    occurred_time: datetime.time | None
+    paid_date: datetime.date
+    amount: int
+    merchant: str
+    category_id: int | None
+    status: Status
+    payment_method: str
+    source: Source
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+    @field_serializer("occurred_time")
+    def _serialize_occurred_time(self, t: datetime.time | None) -> str | None:
+        # time をそのまま返すと "12:30:00" になるため、API の約束どおり HH:MM にする
+        return t.strftime("%H:%M") if t is not None else None
+
+    @classmethod
+    def from_model(cls, t: Transaction) -> "TransactionOut":
+        return cls(
+            id=t.id,
+            occurred_date=t.occurred_date,
+            occurred_time=t.occurred_time,
+            paid_date=t.paid_date,
+            amount=t.amount,
+            merchant=t.merchant,
+            category_id=t.category_id,
+            status=t.status,
+            payment_method=t.payment_method,
+            source=t.source,
+            created_at=t.created_at,
+            updated_at=t.updated_at,
+        )
 
 
 class ExpenseOut(BaseModel):

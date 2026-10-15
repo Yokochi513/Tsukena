@@ -2,9 +2,10 @@ import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from ..model.enum.status import Status
 from ..repositories.category_repository import (
     fetch_categories,
     insert_category,
@@ -18,7 +19,17 @@ from ..repositories.income_repository import (
     remove_income,
     update_income,
 )
-from .schemas import CategoryIn, CategoryOut, ExpenseOut, IncomeIn, IncomeOut
+from ..repositories.transaction_repository import fetch_transactions
+from .schemas import (
+    CategoryIn,
+    CategoryOut,
+    ExpenseOut,
+    IncomeIn,
+    IncomeOut,
+    TransactionOut,
+)
+
+MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 
 
 def create_app(db_path: Path) -> FastAPI:
@@ -34,6 +45,17 @@ def create_app(db_path: Path) -> FastAPI:
     @app.get("/expenses", response_model=list[ExpenseOut])
     def get_expenses(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return [ExpenseOut.from_model(e) for e in list_expenses(conn)]
+
+    @app.get("/transactions", response_model=list[TransactionOut])
+    def get_transactions(
+        month: str | None = Query(None, pattern=MONTH_PATTERN),
+        status: Status | None = None,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        return [
+            TransactionOut.from_model(t)
+            for t in fetch_transactions(conn, month=month, status=status)
+        ]
 
     @app.get("/incomes", response_model=list[IncomeOut])
     def get_incomes(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008

@@ -1,6 +1,9 @@
 import datetime
 from dataclasses import dataclass
 
+from .enum.source import Source
+from .enum.status import Status
+
 
 @dataclass(frozen=True)
 class Transaction:
@@ -11,10 +14,10 @@ class Transaction:
     amount: int
     merchant: str
     merchant_key: str
-    category_id: int
-    status: str
+    category_id: int | None
+    status: Status
     payment_method: str
-    source: str
+    source: Source
     source_ref: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
