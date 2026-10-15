@@ -50,4 +50,12 @@ class IncomeService {
 
     return Income.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
+
+  Future<void> deleteIncome(int incomeId) async {
+    final response = await http.delete(Uri.parse('$baseUrl/incomes/$incomeId'));
+
+    if (response.statusCode != 204) {
+      throw Exception('収入の削除に失敗しました');
+    }
+  }
 }

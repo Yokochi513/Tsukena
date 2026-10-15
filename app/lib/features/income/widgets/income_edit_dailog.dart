@@ -79,6 +79,14 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('キャンセル'),
             ),
+            if (widget.income case final income?)
+              TextButton(
+                onPressed: () => _delete(income),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('削除'),
+              ),
           ],
         ),
       ],
@@ -93,6 +101,41 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
     } else {
       await service.postIncome(fieldInput);
     }
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
+  }
+
+  Future<void> _delete(Income income) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('この収入を削除しますか?'),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('削除'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await IncomeService(
+      baseUrl: 'http://127.0.0.1:8000',
+    ).deleteIncome(income.id);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
