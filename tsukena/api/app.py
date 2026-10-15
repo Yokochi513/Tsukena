@@ -5,7 +5,11 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..repositories.category_repository import fetch_categories, insert_category
+from ..repositories.category_repository import (
+    fetch_categories,
+    insert_category,
+    update_category,
+)
 from ..repositories.database import connect
 from ..repositories.expense_repository import list_expenses
 from ..repositories.income_repository import (
@@ -66,6 +70,18 @@ def create_app(db_path: Path) -> FastAPI:
     @app.post("/categories", response_model=CategoryOut, status_code=201)
     def post_category(body: CategoryIn, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return CategoryOut.from_model(insert_category(conn, body.to_model()))
+
+    @app.patch("/categories/{category_id}", response_model=CategoryOut)
+    def patch_category(
+        category_id: int,
+        body: CategoryIn,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        category = update_category(conn, category_id, body.to_model())
+
+        if category is None:
+            raise HTTPException(status_code=404, detail="Category not found")
+        return CategoryOut.from_model(category)
 
     return app
 

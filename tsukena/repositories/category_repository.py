@@ -18,6 +18,31 @@ def insert_category(conn: sqlite3.Connection, category: CategoryInput) -> Catego
     )
 
 
+def update_category(
+    conn: sqlite3.Connection, category_id: int, update: CategoryInput
+) -> Category | None:
+    row = conn.execute(
+        "SELECT * FROM categories WHERE id = ?", (category_id,)
+    ).fetchone()
+    if row is None:
+        return None
+    current = _row_to_category(row)
+
+    updated = Category(
+        id=current.id,
+        name=update.name,
+        emoji=update.emoji,
+        sort_order=update.sort_order,
+    )
+
+    conn.execute(
+        "UPDATE categories SET name = ?, emoji = ?, sort_order = ? WHERE id = ?",
+        (updated.name, updated.emoji, updated.sort_order, category_id),
+    )
+    conn.commit()
+    return updated
+
+
 def fetch_categories(conn: sqlite3.Connection) -> list[Category]:
     rows = conn.execute("SELECT * FROM categories").fetchall()
     return [_row_to_category(r) for r in rows]
