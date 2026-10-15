@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from ..repositories.category_repository import fetch_categories
 from ..repositories.database import connect
 from ..repositories.expense_repository import list_expenses
 from ..repositories.income_repository import (
@@ -13,7 +14,7 @@ from ..repositories.income_repository import (
     remove_income,
     update_income,
 )
-from .schemas import ExpenseOut, IncomeIn, IncomeOut
+from .schemas import CategoryOut, ExpenseOut, IncomeIn, IncomeOut
 
 
 def create_app(db_path: Path) -> FastAPI:
@@ -57,6 +58,10 @@ def create_app(db_path: Path) -> FastAPI:
     def delete_income(income_id: int, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         if not remove_income(conn, income_id):
             raise HTTPException(status_code=404, detail="Income not found")
+
+    @app.get("/categories", response_model=list[CategoryOut])
+    def get_categories(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        return [CategoryOut.from_model(category) for category in fetch_categories(conn)]
 
     return app
 
