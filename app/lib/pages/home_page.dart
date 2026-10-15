@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tsukena/pages/expense_list_page.dart';
+import 'package:tsukena/pages/transaction_list_page.dart';
 import 'package:tsukena/pages/income_list_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -17,7 +17,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: [ExpenseListPage(), IncomeListPage()],
+        children: [TransactionListPage(), IncomeListPage()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
