@@ -31,6 +31,40 @@ def insert_income(conn: sqlite3.Connection, income: IncomeInput) -> Income:
     )
 
 
+def update_income(
+    conn: sqlite3.Connection, income_id: int, update: IncomeInput
+) -> Income | None:
+    row = conn.execute("SELECT * FROM incomes WHERE id = ?", (income_id,)).fetchone()
+    if row is None:
+        return None
+    current = _row_to_income(row)
+
+    now = datetime.datetime.now(JST)
+    updated = Income(
+        id=current.id,
+        received_date=update.received_date
+        if update.received_date is not None
+        else current.received_date,
+        amount=update.amount if update.amount is not None else current.amount,
+        memo=update.memo if update.memo is not None else current.memo,
+        created_at=current.created_at,
+        updated_at=now,
+    )
+
+    conn.execute(
+        "UPDATE incomes SET received_date = ?, amount = ?, memo = ?, updated_at = ? WHERE id = ?",
+        (
+            updated.received_date.isoformat(),
+            updated.amount,
+            updated.memo,
+            now.isoformat(),
+            income_id,
+        ),
+    )
+    conn.commit()
+    return updated
+
+
 def fetch_incomes(conn: sqlite3.Connection) -> list[Income]:
     rows = conn.execute("SELECT * FROM incomes").fetchall()
     return [_row_to_income(r) for r in rows]

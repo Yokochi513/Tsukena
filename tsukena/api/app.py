@@ -2,12 +2,12 @@ import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..repositories.database import connect
 from ..repositories.expense_repository import list_expenses
-from ..repositories.income_repository import fetch_incomes, insert_income
+from ..repositories.income_repository import fetch_incomes, insert_income, update_income
 from .schemas import ExpenseOut, IncomeIn, IncomeOut
 
 
@@ -35,6 +35,18 @@ def create_app(db_path: Path) -> FastAPI:
         conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
     ):
         return IncomeOut.from_model(insert_income(conn, body.to_model()))
+
+    @app.patch("/incomes/{income_id}", response_model=IncomeOut)
+    def patch_income(
+        income_id: int,
+        body: IncomeIn,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        income = update_income(conn, income_id, body.to_model())
+
+        if income is None:
+            raise HTTPException(status_code=404, detail="Income not found")
+        return IncomeOut.from_model(income)
 
     return app
 
