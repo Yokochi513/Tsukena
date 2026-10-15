@@ -32,7 +32,7 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: _isEdit ? const Text('収入を編集') : const Text('収入を追加'),
+      title: Text(_isEdit ? '収入を編集' : '収入を追加'),
       content: SizedBox(
         width: 400,
         child: Column(
@@ -74,16 +74,7 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            TextButton(
-              onPressed: () async {
-                await IncomeService(
-                  baseUrl: 'http://127.0.0.1:8000',
-                ).postIncome(fieldInput);
-                if (!context.mounted) return;
-                Navigator.of(context).pop(true);
-              },
-              child: const Text('保存'),
-            ),
+            TextButton(onPressed: _save, child: const Text('保存')),
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('キャンセル'),
@@ -92,5 +83,17 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
         ),
       ],
     );
+  }
+
+  Future<void> _save() async {
+    final service = IncomeService(baseUrl: 'http://127.0.0.1:8000');
+    final income = widget.income;
+    if (_isEdit) {
+      await service.patchIncome(income!.id, fieldInput);
+    } else {
+      await service.postIncome(fieldInput);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
   }
 }

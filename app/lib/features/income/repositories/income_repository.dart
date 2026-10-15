@@ -36,4 +36,18 @@ class IncomeService {
 
     return Income.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
+
+  Future<Income> patchIncome(int incomeId, IncomeInput incomeInput) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/incomes/$incomeId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(incomeInput.toJson()),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('収入の修正に失敗しました');
+    }
+
+    return Income.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
 }

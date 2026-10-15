@@ -1,5 +1,5 @@
 class Income {
-  int? id;
+  int id;
   DateTime receivedDate;
   int amount;
   String memo;
@@ -7,7 +7,7 @@ class Income {
   DateTime updatedAt;
 
   Income({
-    this.id,
+    this.id = 0,
     required this.receivedDate,
     required this.amount,
     this.memo = '',
@@ -17,7 +17,7 @@ class Income {
 
   factory Income.fromJson(Map<String, dynamic> json) {
     return Income(
-      id: json['id'] as int?,
+      id: json['id'] as int,
       receivedDate: DateTime.parse(json['received_date'] as String),
       amount: json['amount'] as int,
       memo: json['memo'] as String,
