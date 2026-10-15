@@ -51,19 +51,24 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('キャンセル'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            await IncomeService(
-              baseUrl: 'http://127.0.0.1:8000',
-            ).postIncome(fieldInput);
-            if (!context.mounted) return;
-            Navigator.of(context).pop(true);
-          },
-          child: const Text('保存'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton(
+              onPressed: () async {
+                await IncomeService(
+                  baseUrl: 'http://127.0.0.1:8000',
+                ).postIncome(fieldInput);
+                if (!context.mounted) return;
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('保存'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+          ],
         ),
       ],
     );
