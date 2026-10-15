@@ -5,6 +5,7 @@ import 'package:tsukena/features/transaction/entities/transaction.dart';
 import 'package:tsukena/features/transaction/entities/category.dart';
 import 'package:tsukena/features/transaction/repositories/category_repository.dart';
 import 'package:tsukena/features/transaction/repositories/transaction_repository.dart';
+import 'package:tsukena/features/transaction/widgets/transaction_edit_dialog.dart';
 import 'package:tsukena/features/transaction/widgets/transaction_list.dart';
 
 class TransactionListPage extends StatefulWidget {
@@ -53,6 +54,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           return TransactionList(
             transactions: transactions,
             categories: categoryMap,
+            onTap: (transaction) => _openEdit(transaction, categoryMap),
           );
         },
       ),
@@ -67,6 +69,20 @@ class _TransactionListPageState extends State<TransactionListPage> {
       CategoryService(baseUrl: baseUrl).getCategories(),
     ).wait;
     return (transactions, {for (final c in categories) c.id: c});
+  }
+
+  Future<void> _openEdit(
+    Transaction transaction,
+    Map<int, Category> categories,
+  ) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => TransactionEditDialog(
+        transaction: transaction,
+        categories: categories,
+      ),
+    );
+    if (saved == true) _reload();
   }
 
   void _reload() {

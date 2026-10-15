@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:tsukena/features/transaction/entities/transaction.dart';
+import 'package:tsukena/features/transaction/entities/transaction_update.dart';
 
 class TransactionService {
   TransactionService({required this.baseUrl});
@@ -29,5 +30,24 @@ class TransactionService {
     return items
         .map((item) => Transaction.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<Transaction> patchTransaction(
+    int transactionId,
+    TransactionUpdate transactionUpdate,
+  ) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/transactions/$transactionId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(transactionUpdate.toJson()),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('取引の修正に失敗しました');
+    }
+
+    return Transaction.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 }
