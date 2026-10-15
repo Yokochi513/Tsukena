@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ..repositories.database import connect
 from ..repositories.expense_repository import list_expenses
-from ..repositories.income_repository import insert_income
+from ..repositories.income_repository import fetch_incomes, insert_income
 from .schemas import ExpenseOut, IncomeIn, IncomeOut
 
 
@@ -24,6 +24,10 @@ def create_app(db_path: Path) -> FastAPI:
     @app.get("/expenses", response_model=list[ExpenseOut])
     def get_expenses(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return [ExpenseOut.from_model(e) for e in list_expenses(conn)]
+
+    @app.get("/incomes", response_model=list[IncomeOut])
+    def get_incomes(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        return [IncomeOut.from_model(income) for income in fetch_incomes(conn)]
 
     @app.post("/incomes", response_model=IncomeOut, status_code=201)
     def post_income(

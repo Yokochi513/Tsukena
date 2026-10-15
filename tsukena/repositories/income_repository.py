@@ -29,3 +29,19 @@ def insert_income(conn: sqlite3.Connection, income: IncomeInput) -> Income:
         created_at=now,
         updated_at=now,
     )
+
+
+def fetch_incomes(conn: sqlite3.Connection) -> list[Income]:
+    rows = conn.execute("SELECT * FROM incomes").fetchall()
+    return [_row_to_income(r) for r in rows]
+
+
+def _row_to_income(row: sqlite3.Row) -> Income:
+    return Income(
+        id=row["id"],
+        received_date=datetime.date.fromisoformat(row["received_date"]),
+        amount=row["amount"],
+        memo=row["memo"],
+        created_at=datetime.datetime.fromisoformat(row["created_at"]),
+        updated_at=datetime.datetime.fromisoformat(row["updated_at"]),
+    )
