@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tsukena/features/income/entities/income.dart';
 import 'package:tsukena/features/income/repositories/income_repository.dart';
 import 'package:tsukena/features/income/widgets/incomes_list.dart';
+import 'package:tsukena/features/income/widgets/income_edit_dailog.dart';
 
 class IncomeListPage extends StatefulWidget {
   const IncomeListPage({super.key});
@@ -16,7 +17,7 @@ class _ExpenseListPageState extends State<IncomeListPage> {
   @override
   initState() {
     super.initState();
-    _incomes = IncomeService(baseUrl: 'http://127.0.0.1:8000').getIncomes();
+    _reload();
   }
 
   @override
@@ -29,11 +30,7 @@ class _ExpenseListPageState extends State<IncomeListPage> {
             icon: const Icon(Icons.refresh),
             tooltip: '収入読み込み',
             onPressed: () {
-              setState(() {
-                _incomes = IncomeService(
-                  baseUrl: 'http://127.0.0.1:8000',
-                ).getIncomes();
-              });
+              _reload();
             },
           ),
         ],
@@ -51,6 +48,25 @@ class _ExpenseListPageState extends State<IncomeListPage> {
           return IncomeList(incomes: snapshot.data ?? []);
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: '収入を追加',
+        onPressed: () => _openEdit(null),
+        child: const Icon(Icons.add),
+      ),
     );
+  }
+
+  Future<void> _openEdit(Income? income) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => const IncomeEditDialog(),
+    );
+    if (saved == true) _reload();
+  }
+
+  void _reload() {
+    setState(() {
+      _incomes = IncomeService(baseUrl: 'http://127.0.0.1:8000').getIncomes();
+    });
   }
 }

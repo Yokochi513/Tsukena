@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/components/date_picker.dart';
 import 'package:tsukena/features/income/entities/income_input.dart';
+import 'package:tsukena/features/income/repositories/income_repository.dart';
 
-class IncomeEditPage extends StatefulWidget {
-  const IncomeEditPage({super.key});
+class IncomeEditDialog extends StatefulWidget {
+  const IncomeEditDialog({super.key});
 
   @override
-  State<IncomeEditPage> createState() => _IncomeEditPageState();
+  State<IncomeEditDialog> createState() => _IncomeEditDialogState();
 }
 
-class _IncomeEditPageState extends State<IncomeEditPage> {
+class _IncomeEditDialogState extends State<IncomeEditDialog> {
   final fieldInput = IncomeInput();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+    return AlertDialog(
+      title: const Text('収入を追加'),
+      content: SizedBox(
+        width: 400,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             DatePickerField(
               label: "入金日",
@@ -44,11 +47,25 @@ class _IncomeEditPageState extends State<IncomeEditPage> {
                 fieldInput.memo = value;
               },
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: () {}, child: const Text('保存')),
           ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('キャンセル'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            await IncomeService(
+              baseUrl: 'http://127.0.0.1:8000',
+            ).postIncome(fieldInput);
+            if (!context.mounted) return;
+            Navigator.of(context).pop(true);
+          },
+          child: const Text('保存'),
+        ),
+      ],
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:tsukena/features/income/entities/income.dart';
 import 'package:http/http.dart' as http;
+import 'package:tsukena/features/income/entities/income_input.dart';
 
 class IncomeService {
   IncomeService({required this.baseUrl});
@@ -20,5 +21,19 @@ class IncomeService {
     return items
         .map((item) => Income.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<Income> postIncome(IncomeInput incomeInput) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/incomes'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(incomeInput.toJson()),
+    );
+
+    if (response.statusCode != 201) {
+      throw Exception('収入の登録に失敗しました');
+    }
+
+    return Income.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 }
