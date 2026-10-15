@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:tsukena/components/calendar/calender_month_grid.dart';
+import 'package:tsukena/components/calendar/wheel_popup_field.dart';
 
 Future<DateTime?> showJapaneseDatePicker({
   required BuildContext context,
@@ -74,6 +76,17 @@ class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
     });
   }
 
+  void _setMonth(int year, int month) {
+    final firstMonth = DateTime(widget.firstDate.year, widget.firstDate.month);
+    final lastMonth = DateTime(widget.lastDate.year, widget.lastDate.month);
+    var next = DateTime(year, month);
+    if (next.isBefore(firstMonth)) next = firstMonth;
+    if (next.isAfter(lastMonth)) next = lastMonth;
+    setState(() {
+      _month = next;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final previous = DateTime(_month.year, _month.month - 1);
@@ -99,10 +112,33 @@ class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
                   ),
                   // TODO: 将来的にはホイールピッカーにして飛べるようにしたい。
                   Expanded(
-                    child: Text(
-                      '${_month.year}年${_month.month}月',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        WheelPopupField(
+                          values: [
+                            for (
+                              var y = widget.firstDate.year;
+                              y <= widget.lastDate.year;
+                              y++
+                            )
+                              y,
+                          ],
+                          selected: _month.year,
+                          labelOf: (year) => '$year年',
+                          onChanged: (year) => _setMonth(year, _month.month),
+                          style: Theme.of(context).textTheme.titleLarge,
+                          width: 120,
+                        ),
+                        WheelPopupField(
+                          values: [for (var m = 1; m <= 12; m++) m],
+                          selected: _month.month,
+                          labelOf: (month) => '$month月',
+                          onChanged: (month) => _setMonth(_month.year, month),
+                          style: Theme.of(context).textTheme.titleLarge,
+                          width: 88,
+                        ),
+                      ],
                     ),
                   ),
                   IconButton(
@@ -111,6 +147,18 @@ class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
                     icon: const Icon(Icons.chevron_right),
                   ),
                 ],
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: _isInRange(today)
+                    ? () {
+                        setState(() {
+                          _selectedDate = today;
+                          _month = DateTime(today.year, today.month);
+                        });
+                      }
+                    : null,
+                child: const Text('今日'),
               ),
               const SizedBox(height: 12),
               CalenderMonthGrid(
@@ -124,21 +172,10 @@ class _JapaneseDatePickerDialogState extends State<_JapaneseDatePickerDialog> {
                   });
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
               Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextButton(
-                    onPressed: _isInRange(today)
-                        ? () {
-                            setState(() {
-                              _selectedDate = today;
-                              _month = DateTime(today.year, today.month);
-                            });
-                          }
-                        : null,
-                    child: const Text('今日'),
-                  ),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(_selectedDate),
                     child: const Text('決定'),
