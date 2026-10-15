@@ -7,7 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ..repositories.database import connect
 from ..repositories.expense_repository import list_expenses
-from ..repositories.income_repository import fetch_incomes, insert_income, update_income
+from ..repositories.income_repository import (
+    fetch_incomes,
+    insert_income,
+    remove_income,
+    update_income,
+)
 from .schemas import ExpenseOut, IncomeIn, IncomeOut
 
 
@@ -18,7 +23,7 @@ def create_app(db_path: Path) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
     )
 
     @app.get("/expenses", response_model=list[ExpenseOut])
@@ -47,6 +52,11 @@ def create_app(db_path: Path) -> FastAPI:
         if income is None:
             raise HTTPException(status_code=404, detail="Income not found")
         return IncomeOut.from_model(income)
+
+    @app.delete("/incomes/{income_id}", status_code=204)
+    def delete_income(income_id: int, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        if not remove_income(conn, income_id):
+            raise HTTPException(status_code=404, detail="Income not found")
 
     return app
 

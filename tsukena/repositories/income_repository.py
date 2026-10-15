@@ -65,6 +65,12 @@ def update_income(
     return updated
 
 
+def remove_income(conn: sqlite3.Connection, income_id: int) -> bool:
+    cur = conn.execute("DELETE FROM incomes WHERE id = ?", (income_id,))
+    conn.commit()
+    return cur.rowcount > 0
+
+
 def fetch_incomes(conn: sqlite3.Connection) -> list[Income]:
     rows = conn.execute("SELECT * FROM incomes").fetchall()
     return [_row_to_income(r) for r in rows]
