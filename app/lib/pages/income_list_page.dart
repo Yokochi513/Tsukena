@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tsukena/features/expense/entities/expense.dart';
-import 'package:tsukena/features/expense/repositories/expense_repository.dart';
-import 'package:tsukena/features/expense/widgets/expense_list.dart';
+import 'package:tsukena/features/income/entities/income.dart';
+import 'package:tsukena/features/income/repositories/income_repository.dart';
+import 'package:tsukena/features/income/widgets/incomes_list.dart';
 
 class IncomeListPage extends StatefulWidget {
   const IncomeListPage({super.key});
@@ -11,48 +11,45 @@ class IncomeListPage extends StatefulWidget {
 }
 
 class _ExpenseListPageState extends State<IncomeListPage> {
-  late Future<List<Expense>> _expenses;
+  late Future<List<Income>> _incomes;
 
   @override
   initState() {
     super.initState();
-    _expenses = ExpenseService(baseUrl: 'http://127.0.0.1:8000').getExpenses();
+    _incomes = IncomeService(baseUrl: 'http://127.0.0.1:8000').getIncomes();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('支出一覧')),
-      body: Column(
-        children: [
-          const Center(child: Text('支出一覧ページ')),
-          const SizedBox(height: 16),
-          ElevatedButton(
+      appBar: AppBar(
+        title: const Text('収入一覧'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '収入読み込み',
             onPressed: () {
               setState(() {
-                _expenses = ExpenseService(
+                _incomes = IncomeService(
                   baseUrl: 'http://127.0.0.1:8000',
-                ).getExpenses();
+                ).getIncomes();
               });
             },
-            child: const Text('支出読み込み'),
-          ),
-          Expanded(
-            child: FutureBuilder<List<Expense>>(
-              future: _expenses,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return const Center(child: Text('支出の取得に失敗しました'));
-                }
-                return ExpenseList(expenses: snapshot.data ?? []);
-              },
-            ),
           ),
         ],
+      ),
+      body: FutureBuilder<List<Income>>(
+        future: _incomes,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return const Center(child: Text('収入の取得に失敗しました'));
+          }
+          return IncomeList(incomes: snapshot.data ?? []);
+        },
       ),
     );
   }
