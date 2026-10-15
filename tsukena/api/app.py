@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..repositories.category_repository import fetch_categories
+from ..repositories.category_repository import fetch_categories, insert_category
 from ..repositories.database import connect
 from ..repositories.expense_repository import list_expenses
 from ..repositories.income_repository import (
@@ -14,7 +14,7 @@ from ..repositories.income_repository import (
     remove_income,
     update_income,
 )
-from .schemas import CategoryOut, ExpenseOut, IncomeIn, IncomeOut
+from .schemas import CategoryIn, CategoryOut, ExpenseOut, IncomeIn, IncomeOut
 
 
 def create_app(db_path: Path) -> FastAPI:
@@ -62,6 +62,10 @@ def create_app(db_path: Path) -> FastAPI:
     @app.get("/categories", response_model=list[CategoryOut])
     def get_categories(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return [CategoryOut.from_model(category) for category in fetch_categories(conn)]
+
+    @app.post("/categories", response_model=CategoryOut, status_code=201)
+    def post_category(body: CategoryIn, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        return CategoryOut.from_model(insert_category(conn, body.to_model()))
 
     return app
 

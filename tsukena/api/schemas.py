@@ -2,7 +2,7 @@ import datetime
 
 from pydantic import BaseModel, Field
 
-from ..model.category_model import Category
+from ..model.category_model import Category, CategoryInput
 from ..model.expense_model import Expense
 from ..model.income_model import Income, IncomeInput
 
@@ -55,6 +55,19 @@ class IncomeOut(BaseModel):
             memo=i.memo,
             created_at=i.created_at,
             updated_at=i.updated_at,
+        )
+
+
+class CategoryIn(BaseModel):
+    name: str
+    emoji: str
+    sort_order: int
+
+    def to_model(self) -> CategoryInput:
+        return CategoryInput(
+            name=self.name,
+            emoji=self.emoji,
+            sort_order=self.sort_order,
         )
 
 
