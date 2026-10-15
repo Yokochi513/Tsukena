@@ -22,12 +22,12 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('支出一覧')),
-      body: Column(
-        children: [
-          const Center(child: Text('支出一覧ページ')),
-          const SizedBox(height: 16),
-          ElevatedButton(
+      appBar: AppBar(
+        title: const Text('支出一覧'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '支出読み込み',
             onPressed: () {
               setState(() {
                 _expenses = ExpenseService(
@@ -35,24 +35,21 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                 ).getExpenses();
               });
             },
-            child: const Text('支出読み込み'),
-          ),
-          Expanded(
-            child: FutureBuilder<List<Expense>>(
-              future: _expenses,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return const Center(child: Text('支出の取得に失敗しました'));
-                }
-                return ExpenseList(expenses: snapshot.data ?? []);
-              },
-            ),
           ),
         ],
+      ),
+      body: FutureBuilder<List<Expense>>(
+        future: _expenses,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return const Center(child: Text('支出の取得に失敗しました'));
+          }
+          return ExpenseList(expenses: snapshot.data ?? []);
+        },
       ),
     );
   }

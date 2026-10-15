@@ -12,17 +12,38 @@ class ExpenseList extends StatelessWidget {
       return const Center(child: Text('支出がありません'));
     }
 
-    return ListView.builder(
-      itemCount: expenses.length,
-      itemBuilder: (context, index) {
-        final expense = expenses[index];
+    final textTheme = Theme.of(context).textTheme;
 
-        return ListTile(
-          title: Text(expense.merchant),
-          subtitle: Text(expense.paymentMethod),
-          trailing: Text('${expense.amount}円'),
-        );
-      },
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: expenses.length,
+          separatorBuilder: (context, index) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final expense = expenses[index];
+
+            return ListTile(
+              title: Text(expense.merchant),
+              subtitle: Text(expense.paymentMethod),
+              trailing: Text(
+                '¥${_formatAmount(expense.amount)}',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  String _formatAmount(double amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (match) => ',',
     );
   }
 }
