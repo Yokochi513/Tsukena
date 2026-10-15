@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ..repositories.database import connect
 from ..repositories.expense_repository import list_expenses
-from .schemas import ExpenseOut
+from ..repositories.income_repository import insert_income
+from .schemas import ExpenseOut, IncomeIn, IncomeOut
 
 
 def create_app(db_path: Path) -> FastAPI:
@@ -17,12 +18,19 @@ def create_app(db_path: Path) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
     )
 
     @app.get("/expenses", response_model=list[ExpenseOut])
-    def get_expenses(conn: sqlite3.Connection = Depends(get_conn)):  # ③
-        return [ExpenseOut.from_model(e) for e in list_expenses(conn)]  # ④
+    def get_expenses(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        return [ExpenseOut.from_model(e) for e in list_expenses(conn)]
+
+    @app.post("/incomes", response_model=IncomeOut, status_code=201)
+    def post_income(
+        body: IncomeIn,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        return IncomeOut.from_model(insert_income(conn, body.to_model()))
 
     return app
 
