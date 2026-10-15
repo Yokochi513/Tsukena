@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:tsukena/features/income/entities/income.dart';
 
 class IncomeList extends StatelessWidget {
-  const IncomeList({super.key, required this.incomes});
+  const IncomeList({super.key, required this.incomes, this.onTap});
 
   final List<Income> incomes;
+  final ValueChanged<Income>? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +26,7 @@ class IncomeList extends StatelessWidget {
             final income = incomes[index];
 
             return ListTile(
+              onTap: onTap == null ? null : () => onTap!(income),
               title: Text(income.memo.isEmpty ? '（メモなし）' : income.memo),
               subtitle: Text(_formatDate(income.receivedDate)),
               trailing: Text(

@@ -45,7 +45,7 @@ class _ExpenseListPageState extends State<IncomeListPage> {
           if (snapshot.hasError) {
             return const Center(child: Text('収入の取得に失敗しました'));
           }
-          return IncomeList(incomes: snapshot.data ?? []);
+          return IncomeList(incomes: snapshot.data ?? [], onTap: _openEdit);
         },
       ),
       floatingActionButton: FloatingActionButton(
@@ -59,7 +59,7 @@ class _ExpenseListPageState extends State<IncomeListPage> {
   Future<void> _openEdit(Income? income) async {
     final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => const IncomeEditDialog(),
+      builder: (_) => IncomeEditDialog(income: income),
     );
     if (saved == true) _reload();
   }

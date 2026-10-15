@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/components/date_picker.dart';
+import 'package:tsukena/features/income/entities/income.dart';
 import 'package:tsukena/features/income/entities/income_input.dart';
 import 'package:tsukena/features/income/repositories/income_repository.dart';
 
 class IncomeEditDialog extends StatefulWidget {
-  const IncomeEditDialog({super.key});
+  const IncomeEditDialog({super.key, this.income});
+
+  final Income? income;
 
   @override
   State<IncomeEditDialog> createState() => _IncomeEditDialogState();
@@ -13,10 +16,23 @@ class IncomeEditDialog extends StatefulWidget {
 class _IncomeEditDialogState extends State<IncomeEditDialog> {
   final fieldInput = IncomeInput();
 
+  bool get _isEdit => widget.income != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final income = widget.income;
+    if (income != null) {
+      fieldInput.receivedDate = income.receivedDate;
+      fieldInput.amount = income.amount;
+      fieldInput.memo = income.memo;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('収入を追加'),
+      title: _isEdit ? const Text('収入を編集') : const Text('収入を追加'),
       content: SizedBox(
         width: 400,
         child: Column(
@@ -32,17 +48,21 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
               },
             ),
             const SizedBox(height: 16),
-            TextField(
+            TextFormField(
               decoration: const InputDecoration(labelText: '金額'),
               keyboardType: TextInputType.number,
+              initialValue: fieldInput.amount != 0
+                  ? fieldInput.amount.toString()
+                  : "",
               onChanged: (value) {
                 fieldInput.amount = int.tryParse(value) ?? 0;
               },
             ),
             const SizedBox(height: 16),
-            TextField(
+            TextFormField(
               decoration: const InputDecoration(labelText: 'メモ'),
               keyboardType: TextInputType.text,
+              initialValue: fieldInput.memo,
               onChanged: (value) {
                 fieldInput.memo = value;
               },
