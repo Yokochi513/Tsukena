@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/features/expense/entities/expense.dart';
 import 'package:tsukena/features/expense/repositories/expense_repository.dart';
-import 'package:tsukena/features/expense/widgets/expense_list.dart';
+import 'package:tsukena/features/expense/widgets/expenses_list.dart';
 
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
