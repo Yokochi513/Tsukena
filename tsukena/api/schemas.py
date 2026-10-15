@@ -1,13 +1,13 @@
 import datetime
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from ..model.category_model import Category, CategoryInput
 from ..model.enum.source import Source
 from ..model.enum.status import Status
 from ..model.expense_model import Expense
 from ..model.income_model import Income, IncomeInput
-from ..model.transaction_model import Transaction
+from ..model.transaction_model import Transaction, TransactionUpdate
 
 
 class TransactionOut(BaseModel):
@@ -125,4 +125,30 @@ class CategoryOut(BaseModel):
             name=i.name,
             emoji=i.emoji,
             sort_order=i.sort_order,
+        )
+
+
+class TransactionUpdateIn(BaseModel):
+    # すべて省略可。送らなかった項目は変えない
+    occurred_date: datetime.date | None = None
+    paid_date: datetime.date | None = None
+    amount: int | None = Field(None, ge=1)
+    merchant: str | None = None
+    category_id: int | None = None
+
+    @field_validator("category_id")
+    @classmethod
+    def _reject_null_category(cls, v: int | None) -> int | None:
+        # 省略したときは呼ばれず、null を明示したときだけ呼ばれる。確定の記録を確認待ちに戻す経路は持たない
+        if v is None:
+            raise ValueError("category_id に null は指定できません")
+        return v
+
+    def to_model(self) -> TransactionUpdate:
+        return TransactionUpdate(
+            occurred_date=self.occurred_date,
+            paid_date=self.paid_date,
+            amount=self.amount,
+            merchant=self.merchant,
+            category_id=self.category_id,
         )

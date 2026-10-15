@@ -55,3 +55,10 @@ def _row_to_category(row: sqlite3.Row) -> Category:
         emoji=row["emoji"],
         sort_order=row["sort_order"],
     )
+
+
+def category_exists(conn: sqlite3.Connection, category_id: int) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM categories WHERE id = ?", (category_id,)
+    ).fetchone()
+    return row is not None

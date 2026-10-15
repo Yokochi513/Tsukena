@@ -20,6 +20,12 @@ from ..repositories.income_repository import (
     update_income,
 )
 from ..repositories.transaction_repository import fetch_transactions
+from ..services.transaction_service import (
+    CategoryNotFoundError,
+    InvalidPaidDateError,
+    TransactionNotFoundError,
+    modify_transaction,
+)
 from .schemas import (
     CategoryIn,
     CategoryOut,
@@ -27,6 +33,7 @@ from .schemas import (
     IncomeIn,
     IncomeOut,
     TransactionOut,
+    TransactionUpdateIn,
 )
 
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
@@ -56,6 +63,26 @@ def create_app(db_path: Path) -> FastAPI:
             TransactionOut.from_model(t)
             for t in fetch_transactions(conn, month=month, status=status)
         ]
+
+    @app.patch("/transactions/{transaction_id}", response_model=TransactionOut)
+    def patch_transaction(
+        transaction_id: int,
+        body: TransactionUpdateIn,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        try:
+            transaction = modify_transaction(conn, transaction_id, body.to_model())
+        except TransactionNotFoundError:
+            raise HTTPException(
+                status_code=404, detail="Transaction not found"
+            ) from None
+        except CategoryNotFoundError:
+            raise HTTPException(status_code=422, detail="Category not found") from None
+        except InvalidPaidDateError:
+            raise HTTPException(
+                status_code=400, detail="paid_date must not be before occurred_date"
+            ) from None
+        return TransactionOut.from_model(transaction)
 
     @app.get("/incomes", response_model=list[IncomeOut])
     def get_incomes(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008

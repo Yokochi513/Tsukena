@@ -36,6 +36,38 @@ def fetch_transactions(
     return [_row_to_transaction(r) for r in rows]
 
 
+def fetch_transaction(
+    conn: sqlite3.Connection, transaction_id: int
+) -> Transaction | None:
+    row = conn.execute(
+        "SELECT * FROM transactions WHERE id = ?", (transaction_id,)
+    ).fetchone()
+    return _row_to_transaction(row) if row is not None else None
+
+
+def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
+    # 分類ルールの学習と同じ単位で確定させたいため、commit は呼び出す側が行う
+    conn.execute(
+        """
+        UPDATE transactions
+        SET occurred_date = ?, paid_date = ?, amount = ?, merchant = ?,
+            merchant_key = ?, category_id = ?, status = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (
+            t.occurred_date.isoformat(),
+            t.paid_date.isoformat(),
+            t.amount,
+            t.merchant,
+            t.merchant_key,
+            t.category_id,
+            t.status.value,
+            t.updated_at.isoformat(),
+            t.id,
+        ),
+    )
+
+
 def _row_to_transaction(row: sqlite3.Row) -> Transaction:
     t = row["occurred_time"]
     return Transaction(

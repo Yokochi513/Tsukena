@@ -21,3 +21,13 @@ class Transaction:
     source_ref: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+
+@dataclass(frozen=True)
+class TransactionUpdate:
+    # None は「変えない」を表す。カテゴリを未設定に戻す指示は表せない
+    occurred_date: datetime.date | None = None
+    paid_date: datetime.date | None = None
+    amount: int | None = None
+    merchant: str | None = None
+    category_id: int | None = None
