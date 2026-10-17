@@ -50,4 +50,14 @@ class TransactionService {
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
+
+  Future<void> deleteTransaction(int transactionId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/transactions/$transactionId'),
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('収入の削除に失敗しました');
+    }
+  }
 }

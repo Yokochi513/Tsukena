@@ -121,6 +121,13 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
               onPressed: () => Navigator.of(context).pop(false),
               child: const Text('キャンセル'),
             ),
+            TextButton(
+              onPressed: () => _delete(transaction),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
+              child: const Text('削除'),
+            ),
           ],
         ),
       ],
@@ -172,5 +179,40 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _delete(Transaction transaction) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('この取引を削除しますか?'),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: const Text('削除'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await TransactionService(
+      baseUrl: 'http://127.0.0.1:8000',
+    ).deleteTransaction(transaction.id);
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
   }
 }
