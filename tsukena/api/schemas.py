@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field, field_serializer, field_validator
 from ..model.category_model import Category, CategoryInput
 from ..model.enum.source import Source
 from ..model.enum.status import Status
-from ..model.expense_model import Expense
 from ..model.income_model import Income, IncomeInput
 from ..model.transaction_model import Transaction, TransactionUpdate
 
@@ -45,26 +44,6 @@ class TransactionOut(BaseModel):
             source=t.source,
             created_at=t.created_at,
             updated_at=t.updated_at,
-        )
-
-
-class ExpenseOut(BaseModel):
-    id: int
-    occurred_date: datetime.date
-    occurred_time: datetime.time | None
-    merchant: str
-    payment_method: str
-    amount: float
-
-    @classmethod
-    def from_model(cls, e: Expense) -> "ExpenseOut":
-        return cls(
-            id=e.id,
-            occurred_date=e.occurred_date,
-            occurred_time=e.occurred_time,
-            merchant=e.merchant,
-            payment_method=e.payment_method,
-            amount=e.amount,
         )
 
 

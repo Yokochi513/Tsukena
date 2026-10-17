@@ -12,7 +12,6 @@ from ..repositories.category_repository import (
     update_category,
 )
 from ..repositories.database import connect
-from ..repositories.expense_repository import list_expenses
 from ..repositories.income_repository import (
     fetch_incomes,
     insert_income,
@@ -29,7 +28,6 @@ from ..services.transaction_service import (
 from .schemas import (
     CategoryIn,
     CategoryOut,
-    ExpenseOut,
     IncomeIn,
     IncomeOut,
     TransactionOut,
@@ -48,10 +46,6 @@ def create_app(db_path: Path) -> FastAPI:
         allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
     )
-
-    @app.get("/expenses", response_model=list[ExpenseOut])
-    def get_expenses(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
-        return [ExpenseOut.from_model(e) for e in list_expenses(conn)]
 
     @app.get("/transactions", response_model=list[TransactionOut])
     def get_transactions(
