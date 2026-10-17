@@ -69,7 +69,7 @@ def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
 
 
 def remove_transaction(conn: sqlite3.Connection, transaction_id: int) -> bool:
-    cur = conn.execute("DELETE FROM * transactions WHERE id = ?", (transaction_id,))
+    cur = conn.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
     conn.commit()
     return cur.rowcount > 0
 
