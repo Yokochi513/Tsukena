@@ -19,7 +19,7 @@ from ..repositories.income_repository import (
     remove_income,
     update_income,
 )
-from ..repositories.transaction_repository import fetch_transactions
+from ..repositories.transaction_repository import fetch_transactions, remove_transaction
 from ..services.transaction_service import (
     CategoryNotFoundError,
     InvalidPaidDateError,
@@ -83,6 +83,14 @@ def create_app(db_path: Path) -> FastAPI:
                 status_code=400, detail="paid_date must not be before occurred_date"
             ) from None
         return TransactionOut.from_model(transaction)
+
+    @app.delete("/transactions/{transaction_id}", status_code=204)
+    def delete_transaction(
+        transaction_id: int,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        if not remove_transaction(conn, transaction_id):
+            raise HTTPException(status_code=404, detail="Income not found")
 
     @app.get("/incomes", response_model=list[IncomeOut])
     def get_incomes(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
