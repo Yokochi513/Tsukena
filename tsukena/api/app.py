@@ -57,6 +57,8 @@ def create_app(db_path: Path, api_tokens: ApiTokens) -> FastAPI:
         CORSMiddleware,
         allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        # Authorization はブラウザが既定では許さないヘッダーなので、明示しないとプリフライトで断られる
+        allow_headers=["Authorization", "Content-Type"],
     )
 
     @app.get(
