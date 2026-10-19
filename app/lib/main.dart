@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/core/api_config.dart';
+import 'package:tsukena/core/api_http.dart';
 import 'package:tsukena/pages/home_page.dart';
+import 'package:tsukena/pages/token_page.dart';
 
-void main() {
+Future<void> main() async {
   ApiConfig.ensureConfigured();
+  // 保存したトークンを読むために、runApp の前にプラグインを使えるようにする
+  WidgetsFlutterBinding.ensureInitialized();
+  await ApiConfig.load();
   runApp(const MyApp());
 }
 
@@ -16,7 +21,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Tsukena',
       debugShowCheckedModeBanner: false,
-      home: const HomePage(),
+      navigatorKey: navigatorKey,
+      home: ApiConfig.hasToken ? const HomePage() : const TokenPage(),
     );
   }
 }

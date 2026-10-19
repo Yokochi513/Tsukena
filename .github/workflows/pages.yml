@@ -1,0 +1,71 @@
+# Web 版のアプリをビルドして GitHub Pages に置く（→ docs/adr/0010-web-app-on-github-pages.md）
+# トークンはビルドに入れない。Pages のサイトは誰でも読めるため（アプリの画面で入力してもらう）
+name: Deploy web app to Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "app/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 新しい push が来たら、古い配置は待たずに取り消す
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check API_BASE_URL
+        # 設定し忘れると、アプリは開いた瞬間に止まる。ビルドの時点で気づけるようにする
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "リポジトリの変数 API_BASE_URL が設定されていません（Settings → Secrets and variables → Actions → Variables）"
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.6
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build
+        # プロジェクトのサイトは https://<ユーザー>.github.io/<リポジトリ>/ に置かれるため、base-href をリポジトリ名にする
+        run: >
+          flutter build web --release
+          --base-href "/${{ github.event.repository.name }}/"
+          --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

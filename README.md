@@ -148,4 +148,4 @@ bot からの返事：
 
 - データの保存先（クラウドのどのサービスを使うか）
 - 自動分類の方法（店名のルールか、生成AIか）
-- ~~スマホアプリの対象 OS と配布方法~~ → 当面は Web 版をサーバーから配信する（→ [ADR-0009](docs/adr/0009-web-app-via-cloudflare-tunnel.md)）。サーバーへの置き方は [deploy.md](docs/deploy.md)
+- ~~スマホアプリの対象 OS と配布方法~~ → 当面は Web 版を GitHub Pages で配信する（→ [ADR-0010](docs/adr/0010-web-app-on-github-pages.md)）。サーバーへの置き方は [deploy.md](docs/deploy.md)

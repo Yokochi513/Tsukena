@@ -1,6 +1,6 @@
 # ADR-0009: アプリは Web 版を API から配信し、Cloudflare Tunnel と Cloudflare Access で外に出す
 
-- 状態: 採用
+- 状態: 一部を [ADR-0010](./0010-web-app-on-github-pages.md) で置き換え（Web 版の配信先と Cloudflare Access）。Cloudflare Tunnel で API を外に出すことは本 ADR のまま
 - 日付: 2026-10-20
 
 ## 背景

@@ -4,7 +4,6 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from ..model.api_tokens import ApiTokens
 from ..model.enum.record_outcome import RecordOutcome
@@ -49,7 +48,7 @@ BOT_ONLY = Depends(allow(Caller.BOT))
 
 
 def create_app(
-    db_path: Path, api_tokens: ApiTokens, web_dir: Path | None = None
+    db_path: Path, api_tokens: ApiTokens, cors_origins: list[str] | None = None
 ) -> FastAPI:
     app = FastAPI(title="Tsukena API")
     app.state.db_path = db_path
@@ -58,6 +57,8 @@ def create_app(
     # Flutter Web の開発サーバーはポートが毎回変わるため、ローカルのオリジンをポート問わず許可する
     app.add_middleware(
         CORSMiddleware,
+        # 本番の Web 版（GitHub Pages）は API と別のオリジンなので、設定に書いたオリジンを許可する（→ ADR-0010）
+        allow_origins=cors_origins or [],
         allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         # Authorization はブラウザが既定では許さないヘッダーなので、明示しないとプリフライトで断られる
@@ -190,11 +191,6 @@ def create_app(
         if result.outcome is not RecordOutcome.RECORDED:
             response.status_code = 200
         return RecordResultOut.from_model(result)
-
-    # Web 版のアプリを API と同じオリジンから配信する（→ ADR-0009）。同じオリジンなので CORS が要らない。
-    # 上で登録した API のパスが先に照合されるため、それ以外のパスだけがここに来る
-    if web_dir is not None:
-        app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
 
     return app
 

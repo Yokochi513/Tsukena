@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
 import 'package:tsukena/core/api_config.dart';
+import 'package:tsukena/core/api_http.dart';
 import 'package:tsukena/features/transaction/entities/transaction.dart';
 import 'package:tsukena/features/transaction/entities/transaction_update.dart';
 
@@ -21,7 +21,7 @@ class TransactionService {
       // 空の Map を渡すと末尾に "?" だけが付くため、絞り込みが無いときは null にする
       queryParameters: query.isEmpty ? null : query,
     );
-    final response = await http.get(uri, headers: ApiConfig.headers);
+    final response = await ApiHttp.get(uri);
 
     if (response.statusCode != 200) {
       throw Exception('取引の取得に失敗しました');
@@ -38,9 +38,8 @@ class TransactionService {
     int transactionId,
     TransactionUpdate transactionUpdate,
   ) async {
-    final response = await http.patch(
+    final response = await ApiHttp.patch(
       Uri.parse('$baseUrl/transactions/$transactionId'),
-      headers: ApiConfig.headers,
       body: jsonEncode(transactionUpdate.toJson()),
     );
 
@@ -54,9 +53,8 @@ class TransactionService {
   }
 
   Future<void> deleteTransaction(int transactionId) async {
-    final response = await http.delete(
+    final response = await ApiHttp.delete(
       Uri.parse('$baseUrl/transactions/$transactionId'),
-      headers: ApiConfig.headers,
     );
 
     if (response.statusCode != 204) {

@@ -13,12 +13,11 @@ def load_db_path() -> Path:
     return (CONFIG_PATH.parent / config["database"]["path"]).resolve()
 
 
-def load_web_dir() -> Path | None:
-    """Web 版のアプリのビルド結果の場所を返す。ビルドしていなければ None（API だけを動かす）。"""
+def load_cors_origins() -> list[str]:
+    """ブラウザから API を呼んでよいオリジン（Web 版のアプリの置き場所）を返す。"""
     with CONFIG_PATH.open("rb") as f:
         config = tomllib.load(f)
-    web_dir = (CONFIG_PATH.parent / config["web"]["dir"]).resolve()
-    return web_dir if (web_dir / "index.html").is_file() else None
+    return config["cors"]["origins"]
 
 
 def load_api_token() -> ApiTokens:

@@ -1,22 +1,20 @@
 # サーバーへの置き方
 
-自宅の Linux サーバー（Raspberry Pi など）で API と bot を常駐させ、Web 版のアプリを Cloudflare Tunnel で外から使えるようにする手順。
-構成の理由は [ADR-0009](./adr/0009-web-app-via-cloudflare-tunnel.md) にある。
+自宅の Linux サーバー（Raspberry Pi など）で API と bot を常駐させ、API を Cloudflare Tunnel で外に出す手順。
+Web 版のアプリは GitHub Pages に置く。
+構成の理由は [ADR-0009](./adr/0009-web-app-via-cloudflare-tunnel.md) と [ADR-0010](./adr/0010-web-app-on-github-pages.md) にある。
 
 ```
 スマホ・PC のブラウザ
-   │ HTTPS
-   ▼
-Cloudflare Access（自分のアカウントでのログイン）
-   │
-   ▼
-Cloudflare Tunnel ──（サーバーからの外向きの接続。ルーターのポートは開けない）
-   │
-   ▼  サーバーの中
- cloudflared ─▶ 127.0.0.1:8000  tsukena-api（API と Web 版のアプリ）
-                     ▲
-                     │ 同じ機械の中で呼ぶ
-                tsukena-bot ─▶ Discord
+   │  ① アプリを読み込む            ② API を呼ぶ（Authorization: Bearer ...）
+   ▼                                 ▼
+GitHub Pages                     Cloudflare Tunnel ──（サーバーからの外向きの接続。ルーターのポートは開けない）
+https://yokochi513.github.io/Tsukena/   │
+                                     ▼  サーバーの中
+                                  cloudflared ─▶ 127.0.0.1:8000  tsukena-api
+                                                      ▲
+                                                      │ 同じ機械の中で呼ぶ
+                                                 tsukena-bot ─▶ Discord
 ```
 
 ## 0. 用意するもの
@@ -25,9 +23,9 @@ Cloudflare Tunnel ──（サーバーからの外向きの接続。ルータ�
 | --- | --- |
 | Linux のサーバー | 64 ビットの Raspberry Pi OS（Bookworm 以降）や Ubuntu など。Python 3.11 以上が入っていること（`python3 --version`） |
 | Cloudflare のアカウント | 無料のプランでよい |
-| ドメイン | Cloudflare で DNS を管理しているもの。以下では `tsukena.example.com` と書く |
+| ドメイン | Cloudflare で DNS を管理しているもの。以下では API のホスト名を `tsukena.example.com` と書く |
+| GitHub | 非公開のリポジトリで Pages を使うため、有料プラン（Pro 以上）が要る |
 | Discord の bot | Developer Portal で作った bot のトークン。自分しかいないサーバーに招待しておく（README「初期設定」） |
-| 手元の PC | Flutter が入っていること。Web 版のアプリをここでビルドする |
 
 ## 1. サーバーにコードを置く
 
@@ -43,6 +41,8 @@ sudo -u tsukena sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
 cd /opt/tsukena
 sudo -u tsukena /home/tsukena/.local/bin/uv sync --frozen
 ```
+
+リポジトリは非公開なので、clone のときに認証が要る。サーバーには、読み取りだけの権限のトークン（GitHub の fine-grained personal access token の Contents: Read-only、または deploy key）を使う。
 
 ## 2. 秘密情報を置く
 
@@ -65,6 +65,7 @@ sudo -u tsukena nano .env
 ```
 
 開発に使っていたトークンを流用せず、本番用に作り直すほうが安全である。開発中にスクリーンショットなどへ写っている可能性があるためである。
+API はトークンだけで守られている（→ [ADR-0010](./adr/0010-web-app-on-github-pages.md)）ので、トークンはどこにも貼らない。
 
 ## 3. DB を作る
 
@@ -77,39 +78,7 @@ DB が既にあるときは上書きせずに止まる。
 
 開発中の `db/tsukena.db` をそのまま持っていくこともできるが、`sql/sample/` のサンプルの支出・収入が入っているので勧めない。
 
-## 4. Web 版のアプリをビルドして置く
-
-以下は手元の PC で行う。
-
-`app/dart_defines.prod.json` を作る（`.gitignore` に入っているので git には入らない）。
-
-```json
-{
-  "API_BASE_URL": "https://tsukena.example.com",
-  "API_TOKEN": "（手順2の TSUKENA_APP_API_TOKEN の値）"
-}
-```
-
-```sh
-cd app
-flutter build web --release --dart-define-from-file=dart_defines.prod.json
-```
-
-できた `app/build/web` を、サーバーの `/opt/tsukena/app/build/web` に送る。
-
-```sh
-scp -r build/web <サーバー>:/tmp/tsukena-web
-# サーバーで
-sudo rm -rf /opt/tsukena/app/build/web
-sudo mkdir -p /opt/tsukena/app/build
-sudo mv /tmp/tsukena-web /opt/tsukena/app/build/web
-sudo chown -R tsukena:tsukena /opt/tsukena/app/build
-```
-
-API は、起動するときに `app/build/web/index.html` があれば Web 版も配信する（`tsukena/config.toml` の `[web]`）。
-トークンを作り直したときは、ビルドもし直す。
-
-## 5. API と bot を常駐させる
+## 4. API と bot を常駐させる
 
 ```sh
 sudo cp /opt/tsukena/deploy/systemd/tsukena-* /etc/systemd/system/
@@ -123,23 +92,11 @@ sudo systemctl enable --now tsukena-api tsukena-bot tsukena-backup.timer
 systemctl status tsukena-api tsukena-bot
 journalctl -u tsukena-bot -n 20     # 「Discordに接続しました」が出ていればよい
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/categories   # 401 ならよい（トークンなしで断られた）
-curl -s http://127.0.0.1:8000/ | head -c 100                                 # Web 版の index.html が返ればよい
 ```
 
 Discord で bot に `テスト 1` と送り、返事が来れば bot から API までつながっている。確かめた記録は、後でアプリから消す。
 
-## 6. Cloudflare Access を設定する（公開より先に行う）
-
-**この手順を飛ばして手順7に進まないこと。** Access が無いと、URL を知った人がアプリ用のトークンを取り出せる（→ [ADR-0009](./adr/0009-web-app-via-cloudflare-tunnel.md)）。
-
-1. Cloudflare のダッシュボードで **Zero Trust** を開く（初回はチームの名前を決め、無料のプランを選ぶ）。
-2. **Access → Applications → Add an application → Self-hosted** を選ぶ。
-3. Application domain に `tsukena.example.com` を入れる。
-4. Policy を1つ作る。Action は **Allow**、Include は **Emails** に自分のメールアドレスだけを入れる。
-5. ログインの方法は、既定の **One-time PIN**（メールに届く番号でログインする）でよい。
-6. Session Duration は、ログインし直す手間と安全さの兼ね合いで決める（例: 1 month）。
-
-## 7. Cloudflare Tunnel をつなぐ
+## 5. Cloudflare Tunnel で API を外に出す
 
 サーバーで行う。`cloudflared` の入れ方は Cloudflare の資料（Downloads）に従う。
 
@@ -157,17 +114,33 @@ sudo cloudflared service install
 sudo systemctl status cloudflared
 ```
 
-## 8. 外から確かめる
+このホスト名には、Cloudflare Access を**設定しない**。ブラウザから別のオリジンの API を呼ぶときのプリフライトが、Access に止められるためである（→ [ADR-0010](./adr/0010-web-app-on-github-pages.md)）。
+
+## 6. Web 版のアプリを GitHub Pages に置く
+
+手元の PC か GitHub の画面で行う。
+
+1. リポジトリの **Settings → Pages** で、Source を **GitHub Actions** にする。
+2. **Settings → Secrets and variables → Actions → Variables** に、変数 `API_BASE_URL` を `https://tsukena.example.com` で作る。
+   トークンは**ここに置かない**。ビルドに入ると、Pages で公開されるためである。
+3. **Actions → Deploy web app to Pages → Run workflow** で一度動かす。以降は `master` に `app/` の変更を push するたびに動く。
+
+API の側では、Pages のオリジンを `tsukena/config.toml` の `[cors]` に書いておく（`https://yokochi513.github.io`）。リポジトリの持ち主が変わったときは、ここも変える。
+
+## 7. 外から確かめる
 
 スマホのモバイル回線（Wi-Fi を切った状態）で、次を確かめる。
 
-- [ ] `https://tsukena.example.com` を開くと、まず Cloudflare Access のログイン画面が出る
-- [ ] ログインすると、アプリの画面が出て、支出・収入・カテゴリの一覧が読める
-- [ ] 別のブラウザ（ログインしていない状態）で `https://tsukena.example.com/main.dart.js` を開くと、ログイン画面になり、ファイルが読めない
+- [ ] `https://yokochi513.github.io/Tsukena/` を開くと、トークンの入力画面が出る
+- [ ] 違う値を入れると「トークンが違います」と出て、保存されない
+- [ ] 手順2の `TSUKENA_APP_API_TOKEN` を入れると、支出・収入の一覧が読める
+- [ ] ページを読み込み直しても、トークンを入れ直さずに一覧が出る
 - [ ] Discord で記録すると、アプリの一覧に出る
 - [ ] 翌日、`/opt/tsukena/backup/` にその日のバックアップ（`tsukena-YYYY-MM-DD.db`）ができている
 
 ## 更新するとき
+
+サーバーのコード（API・bot）を変えたとき:
 
 ```sh
 cd /opt/tsukena
@@ -176,8 +149,13 @@ sudo -u tsukena /home/tsukena/.local/bin/uv sync --frozen
 sudo systemctl restart tsukena-api tsukena-bot
 ```
 
-アプリを変えたときは、手順4のビルドと配置をし直す（API の再起動は要らない）。
-systemd のファイルを変えたときは、手順5のコピーと `daemon-reload` をし直す。
+systemd のファイルを変えたときは、手順4のコピーと `daemon-reload` をし直す。
+アプリ（`app/`）を変えたときは、`master` に push すれば GitHub Actions が Pages に置き直す。
+
+トークンを作り直したとき:
+
+1. サーバーの `.env` を書き換え、`sudo systemctl restart tsukena-api tsukena-bot` で再起動する。
+2. 各端末でアプリを開くと 401 で入力画面に戻るので、新しいトークンを入れる。
 
 ## うまく動かないとき
 
@@ -185,9 +163,10 @@ systemd のファイルを変えたときは、手順5のコピーと `daemon-re
 | --- | --- |
 | bot が返事をしない | `journalctl -u tsukena-bot`。`KeyError` なら `.env` の変数が足りない |
 | bot が「記録できませんでした」と返す | `journalctl -u tsukena-api` と `tsukena-bot`。`401` なら `.env` の `TSUKENA_BOT_API_TOKEN` が API と bot で食い違っている |
-| アプリの一覧が出ない | ブラウザの開発者ツールの Network。`401` ならビルドに入れたトークンが `.env` と違う。Access のログイン画面への移動が出ていれば、ページを読み込み直してログインし直す |
-| `https://tsukena.example.com` が開かない | `systemctl status cloudflared` と、Cloudflare のダッシュボードのトンネルの状態 |
-| アプリが古いまま | ブラウザのキャッシュ（Flutter の service worker）。読み込み直すか、サイトのデータを消す |
+| アプリが「API に接続できませんでした」と出す | ブラウザの開発者ツールの Console。CORS のエラーなら `tsukena/config.toml` の `[cors]` に Pages のオリジンが無い。接続できないなら `systemctl status cloudflared` |
+| アプリが開いてすぐ止まる（画面が真っ白） | GitHub の変数 `API_BASE_URL` が空のままビルドされた。Actions のログを見る |
+| `https://tsukena.example.com` に届かない | `systemctl status cloudflared` と、Cloudflare のダッシュボードのトンネルの状態 |
+| アプリが古いまま | ブラウザのキャッシュ（Flutter の service worker）。読み込み直すか、サイトのデータを消す（保存したトークンも消えるので入れ直す） |
 
 ## まだ決まっていないこと
 
