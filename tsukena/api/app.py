@@ -67,12 +67,13 @@ def create_app(db_path: Path, api_tokens: ApiTokens) -> FastAPI:
     def get_transactions(
         month: str | None = Query(None, pattern=MONTH_PATTERN),
         status: Status | None = None,
+        source_ref: str | None = None,
         conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
     ):
-        return [
-            TransactionOut.from_model(t)
-            for t in fetch_transactions(conn, month=month, status=status)
-        ]
+        transactions = fetch_transactions(
+            conn, month=month, status=status, source_ref=source_ref
+        )
+        return [TransactionOut.from_model(t) for t in transactions]
 
     @app.patch(
         "/transactions/{transaction_id}",

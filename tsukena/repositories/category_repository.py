@@ -44,7 +44,8 @@ def update_category(
 
 
 def fetch_categories(conn: sqlite3.Connection) -> list[Category]:
-    rows = conn.execute("SELECT * FROM categories").fetchall()
+    # アプリの一覧と bot のリアクションの並びをそろえるため、表示順で並べる（→ docs/module/discord_bot_design.md）
+    rows = conn.execute("SELECT * FROM categories ORDER BY sort_order, id").fetchall()
     return [_row_to_category(r) for r in rows]
 
 

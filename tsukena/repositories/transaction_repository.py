@@ -10,6 +10,7 @@ def fetch_transactions(
     conn: sqlite3.Connection,
     month: str | None = None,
     status: Status | None = None,
+    source_ref: str | None = None,
 ) -> list[Transaction]:
     conditions: list[str] = []
     params: list[str] = []
@@ -20,6 +21,10 @@ def fetch_transactions(
     if status is not None:
         conditions.append("status = ?")
         params.append(status.value)
+    if source_ref is not None:
+        # bot がリアクションの付いた返事から記録を探すときに使う。一意なので0件か1件になる
+        conditions.append("source_ref = ?")
+        params.append(source_ref)
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     rows = conn.execute(
