@@ -1,6 +1,6 @@
 # ADR-0001: 自宅サーバー／VPS に常駐させ、SQLite に保存する
 
-- 状態: 採用
+- 状態: 採用（1プロセスに同居させる部分は [ADR-0006](./0006-separate-api-and-bot-processes.md) で置き換え、さらに [ADR-0007](./0007-bot-accesses-data-through-api.md) で置き換え）
 - 日付: 2026-09-30
 
 ## 背景

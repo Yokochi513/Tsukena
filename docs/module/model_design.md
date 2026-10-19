@@ -5,7 +5,7 @@
 ## 背景・目的
 <!-- なんのために必要なのか -->
 Tsukena では、1件の支払いを複数のモジュールが順に受け渡して記録する。
-メールの支払いはメールの解析（`mail_parser`）と取り込み（`importer`）を経て記録（`recorder`）に渡り、現金の支払いは Discord の bot（`discord_bot`）から記録に渡る。
+メールの支払いはメールの解析（`mail_parser`）と取り込み（`importer`）を経て記録（`recorder`）に渡り、現金の支払いは Discord の bot（`discord_bot`）から REST API（`api`）を通して記録に渡る。
 記録した結果は、bot の返事、予算の通知、週と月のまとめ、スマホアプリ向けの API がそれぞれ読む。
 
 受け渡す値の形をモジュールごとに決めると、約束が少しずつずれる。
@@ -42,7 +42,7 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | `CategoryTotal`     | 1つの期間の、カテゴリ1つ分の支出合計         | カテゴリ（未分類なら無し）と金額                                         |
 | `MonthlySummary`    | 1つの月の集計                                | 収入合計・支出合計・収支・予算・残り・カテゴリ別の内訳                   |
 | `WeeklySummary`     | 1つの週（月曜〜日曜）の集計                  | 週の支出合計・カテゴリ別の内訳・今月の予算の残り・確認待ちの件数         |
-| `Settings`          | サーバーの設定一式                           | 月の予算・記録用チャンネル・自分の Discord ユーザー・Gmail ラベル名       |
+| `Settings`          | サーバーの設定一式                           | 月の予算・Gmail ラベル名                                                 |
 | `ImportFailure`     | 取り込めなかったメール1通                    | メールの ID・送り主・件名・理由・日時                                    |
 | `NotificationLog`   | 送った通知1回（種類と対象期間の組1つ）       | 通知の種類・対象期間・送った日時                                         |
 
@@ -54,11 +54,11 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | ------------------------------------------------------------ | -------------------------------------------------------- |
 | メールの取得（`gmail_client` → `importer` → `mail_parser`）   | `MailMessage`                                            |
 | メールの解析結果（`mail_parser` → `importer` → `recorder`）   | `ParsedPayment` の列                                     |
-| 現金のメッセージの解析結果（`cash_parser` → `discord_bot`）   | `CashEntry`                                              |
-| 現金の記録（`discord_bot` → `recorder`）                      | `ParsedPayment`                                          |
+| 現金のメッセージの解析結果（`cash_parser` → `api`）           | `CashEntry`                                              |
+| 現金の記録（`api` → `recorder`）                              | `ParsedPayment`                                          |
 | 分類（`classifier` → `recorder`）                            | `Classification`                                         |
 | 支払日の計算（`config` → `recorder` → `paid_date`）          | `PaymentRule`                                            |
-| 記録の結果（`recorder` → `importer` / `discord_bot`）        | `RecordResult`（`Transaction` / `Category` / `BudgetStatus` を含む） |
+| 記録の結果（`recorder` → `importer` / `api`、`api` → `api_client` → `discord_bot` は JSON で） | `RecordResult`（`Transaction` / `Category` / `BudgetStatus` を含む） |
 | 予算の計算（`budget` → `recorder`）                          | `BudgetStatus`                                           |
 | 集計とまとめ（`repository` / `reporter` → `summary`、`repository` → `api`） | `MonthlySummary` / `WeeklySummary` / `CategoryTotal`     |
 | 取り込みの失敗（`importer` → `repository` / `summary`）      | `ImportFailure`                                          |
@@ -279,7 +279,7 @@ class ParsedPayment:
 
 - 不変条件
   - 1件が、まだ保存していない支払い1件を表す。メール1通から複数件が作られることがある。
-  - 自動取り込みではメールの解析（`mail_parser`）が生成する。現金では Discord の bot（`discord_bot`）が、メッセージを分解した結果（`CashEntry`）とメッセージの送信時刻から生成する。記録（`recorder`）はどちらの入口の支払いもこの構造で受け取る。
+  - 自動取り込みではメールの解析（`mail_parser`）が生成する。現金では REST API（`api`）が、メッセージを分解した結果（`CashEntry`）と、bot から受け取ったメッセージの ID と送信時刻から生成する。記録（`recorder`）はどちらの入口の支払いもこの構造で受け取る。
   - 金額（`amount`）は1以上の整数である。
   - 時刻（`occurred_time`）は秒とマイクロ秒を0とし、タイムゾーンを持たない。
   - 店名（`merchant`）は正規化しない。照合キーは分類（`classifier`）で別に作る（→ `Classification`）。
@@ -310,7 +310,7 @@ class CashEntry:
   - 1件が、Discord のメッセージ1件を分解した結果を表す。1件のメッセージから複数件は作らない。
   - 金額（`amount`）は1以上の整数である。解析できないメッセージ（金額が無い、0円以下など）では本構造を作らない。
   - メモ（`memo`）は正規化しない。メッセージのどこまでをメモとするか、前後の空白をどう扱うかは `cash_parser` の設計書で定める。
-  - 利用日・時刻・支払い手段・重複排除キーは持たない。これらは Discord の bot（`discord_bot`）がメッセージから決め、記録する前の支払い（`ParsedPayment`）に入れる。
+  - 利用日・時刻・支払い手段・重複排除キーは持たない。これらは REST API（`api`）が、bot から受け取ったメッセージの ID と送信時刻から決め、記録する前の支払い（`ParsedPayment`）に入れる。
 
 
 ### Classification
@@ -750,8 +750,6 @@ class WeeklySummary:
 @dataclass(frozen=True)
 class Settings:
     monthly_budget: int
-    record_channel_id: int
-    owner_user_id: int
     gmail_label: str
 ```
 
@@ -760,14 +758,13 @@ class Settings:
 | フィールド名        | 型  | 必須 | 内容                                   |
 | ------------------- | --- | ---- | -------------------------------------- |
 | `monthly_budget`    | int | 〇   | 月の予算（円）                         |
-| `record_channel_id` | int | 〇   | 記録用チャンネルの Discord の ID       |
-| `owner_user_id`     | int | 〇   | 自分の Discord ユーザーの ID           |
 | `gmail_label`       | str | 〇   | 取り込み対象の Gmail のラベル名（`家計簿` など） |
 
 - 不変条件
   - 1件が、サーバーの設定一式（`settings` テーブルの内容全体）を表す。設定は1組だけ存在する。
   - 月の予算（`monthly_budget`）は1以上の整数である。予算は全体で1つだけであり、カテゴリごとの予算は持たない。
   - Gmail のラベル名（`gmail_label`）は空文字にならない。
+  - Discord の ID（記録用チャンネル・自分のユーザー）は持たない。記録と通知は bot の持ち主との DM で行い、持ち主は起動のたびに Discord から取る（→ [ADR-0008](../adr/0008-record-and-notify-via-owner-dm.md)）。
   - 支払い手段の締め日のルールは持たない。ルールは設定ファイルに書き、`PaymentRule` として読む（→ [design.md 7.1 支払日の決め方](../design.md#71-支払日の決め方)）。
   - 秘密情報（Discord のトークン、API のトークン、Google のクライアント情報と認証情報）は持たない。これらは設定の読み込み（`config`）で環境変数とサーバー上のファイルから読む（→ [design.md 11. 非機能](../design.md#11-非機能)）。
 

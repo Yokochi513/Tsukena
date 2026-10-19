@@ -16,7 +16,9 @@
 
 | 論点                   | 決定                                  | 記録                                                         |
 | ---------------------- | ------------------------------------- | ------------------------------------------------------------ |
-| データの保存先・実行環境 | 自宅サーバーまたは VPS に1プロセスで常駐させ、SQLite に保存する | [ADR-0001](./adr/0001-self-hosted-sqlite.md)                 |
+| データの保存先・実行環境 | 自宅サーバーまたは VPS に常駐させ、SQLite に保存する | [ADR-0001](./adr/0001-self-hosted-sqlite.md)                 |
+| プロセスの分け方       | REST API（定期実行を含む）と Discord bot を別のプロセスで起動する。DB を開くのは API のプロセスだけで、bot は REST API を通して記録を読み書きする | [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)（[ADR-0006](./adr/0006-separate-api-and-bot-processes.md) を置き換え） |
+| Discord でのやり取り   | 記録・返事・通知はすべて、bot の持ち主との DM で行う。チャンネルは使わない | [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md) |
 | 自動分類の方法         | 店名ルールのみ（生成AIは使わない）    | [ADR-0002](./adr/0002-merchant-rule-classification.md)       |
 | スマホアプリの形態     | ネイティブアプリ                      | [ADR-0003](./adr/0003-native-mobile-app.md)                  |
 | スマホアプリの技術     | Flutter（Dart）                       | [ADR-0003](./adr/0003-native-mobile-app.md)                  |
@@ -30,30 +32,43 @@
 flowchart LR
     subgraph EXT["外部サービス"]
         GM["Gmail<br/>（ラベル: 家計簿）"]
-        DC["Discord<br/>（記録用チャンネル）"]
+        DC["Discord<br/>（bot の持ち主との DM）"]
     end
 
-    subgraph SV["Tsukena サーバー（自宅/VPS・1プロセス）"]
-        SCH["定期実行<br/>scheduler"]
-        BOT["Discord bot<br/>discord_bot"]
-        API["REST API<br/>api"]
-        SVC["記録・分類・集計<br/>（サービス層）"]
+    subgraph SV["Tsukena サーバー（自宅/VPS）"]
+        subgraph PB["bot のプロセス（python -m tsukena.bot）"]
+            BOT["Discord bot<br/>discord_bot"]
+            APIC["API の呼び出し<br/>api_client"]
+        end
+        subgraph PA["API のプロセス（python -m tsukena.api）"]
+            API["REST API<br/>api"]
+            SCH["定期実行<br/>scheduler"]
+            SVC["記録・分類・集計<br/>（サービス層）"]
+            NTF["通知<br/>notifier"]
+        end
         DB[("SQLite")]
     end
 
     APP["スマホアプリ<br/>（Flutter）"]
 
     SCH -->|"5分ごとに取得"| GM
-    DC <-->|"一言 金額 / 返事・リアクション・通知"| BOT
-    APP -->|"HTTPS + トークン"| API
-    SCH --> SVC
-    BOT --> SVC
+    DC <-->|"一言 金額 / 返事・リアクション・予算の通知"| BOT
+    BOT --> APIC
+    APIC -->|"HTTP + bot 用のトークン"| API
+    APP -->|"HTTPS + アプリ用のトークン"| API
     API --> SVC
+    SCH --> SVC
+    SCH --> NTF
+    NTF -->|"まとめ・取り込めないメールの通知<br/>（Discord の HTTP の API）"| DC
     SVC --> DB
 ```
 
-- サーバーは **1つのプロセス**の中で、Discord bot・REST API・定期実行を asyncio 上に同居させる。
-  SQLite への書き込み元を1つに保ち、ロックの競合を考えなくてよくするため。
+- サーバーは **2つのプロセス**で動かす（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
+  1つは REST API と定期実行、もう1つは Discord bot で、それぞれ asyncio 上で動く。
+- **DB を開くのは API のプロセスだけ**とする。bot は REST API を HTTP で呼んで記録を読み書きし、サービス層・repository・DB のファイルを import も参照もしない。
+  記録のルール（メッセージの分解・支払日の計算・分類・重複排除・予算の判定・ルールの学習）はサービス層だけに置き、入口によって振る舞いがずれないようにする。
+- 定期実行は API のプロセスに置く。Gmail の取り込みは DB に書き込むためである。定期実行の通知は、Discord の HTTP の API に bot のトークンで送る。Discord への常時接続（Gateway）は bot のプロセスだけが持つ。
+- Discord とのやり取りは、すべて bot の持ち主との DM で行う（→ [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md)）。持ち主は、Discord のアプリの持ち主を起動のたびに Discord から取り、設定には持たない。
 - スマホアプリはサーバーの REST API だけを呼ぶ。Gmail や Discord とは直接やり取りしない。
 
 ### 採用予定のライブラリ
@@ -99,6 +114,8 @@ sequenceDiagram
     I->>N: 予算の閾値を超えていれば通知
 ```
 
+- 取り込みは API のプロセスの定期実行で動く。通知（`notifier`）は、bot の持ち主への DM を Discord の HTTP の API で送る。
+
 - 対象は Gmail で `家計簿` ラベルが付いたメールだけ。直近7日分を毎回問い合わせ、取り込み済みの ID を除く。
   Gmail の履歴 ID を追う方式より、取りこぼしからの復帰が単純になるため。
 - 送り主（From）で解析器を選ぶ。送り主と解析器・支払い手段の対応は `mail_parser` の登録表に持つ。
@@ -109,31 +126,39 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    actor U as 自分
+    actor U as 自分（bot の持ち主）
     participant B as discord_bot
+    participant A as api
     participant C as cash_parser
     participant R as recorder
 
-    U->>B: 「ランチ 800」
-    B->>C: 本文を解析
+    U->>B: DM で「ランチ 800」
+    B->>A: POST /cash-records（本文・メッセージの ID・送信時刻）
+    A->>C: 本文を解析
     alt 解析できた
-        C-->>B: CashEntry（メモ: ランチ, 金額: 800）
-        B->>R: 支払い手段「現金」で記録
-        R-->>B: 記録結果（カテゴリ・今月の残り・予算の到達）
+        C-->>A: CashEntry（メモ: ランチ, 金額: 800）
+        A->>R: 支払い手段「現金」で記録
+        R-->>A: 記録結果（カテゴリ・今月の残り・予算の到達）
+        A-->>B: 記録結果
         B->>U: 「🍚 食費 800円 で記録しました（今月あと 32,000円）」＋カテゴリのリアクション
         opt 予算の閾値を超えた
             B->>U: 「⚠️ 今月の予算の80%を使いました」
         end
     else 解析できない
-        B->>U: 書き方の案内（記録しない）
+        A-->>B: 解析できない（記録しない）
+        B->>U: 書き方の案内
     end
     U->>B: 返事のリアクションをタップ
-    B->>R: カテゴリを変更（確定にし、ルールを学習）
+    B->>A: GET /transactions?source_ref=discord:{元のメッセージの ID}
+    B->>A: PATCH /transactions/{id}（カテゴリ）
+    A->>R: カテゴリを変更（確定にし、ルールを学習）
 ```
 
-- 反応するのは、設定した記録用チャンネルの、設定した自分のユーザーからのメッセージだけ。
+- 反応するのは、bot の持ち主が bot との DM で送ったメッセージだけ（→ [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md)）。サーバーのチャンネルのメッセージには、持ち主のものでも反応しない。
+- bot はメッセージを分解せず、本文をそのまま API に送る。分解・支払日・分類・予算の判定は API の側で行う（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
 - 返事には、有効なカテゴリの絵文字をリアクションとして付けておく。タップされた絵文字のカテゴリに直す。
 - 現金の支払日は利用日と同じ日になる。そのため、返事の「今月あと」は常に今月の予算の残りである。
+- API が止まっているなど、API を呼べなかったときは記録しない。bot は記録できなかったことを返事で知らせる。
 
 ### 4.3 スマホアプリ（修正・確認待ち・振り返り・収入）
 
@@ -154,6 +179,7 @@ sequenceDiagram
 | 予算の到達       | 記録した直後（随時）                   | ある月の支出が予算の80% / 100% を超えたとき、対象の月と残りの金額 |
 | 取り込めないメール | 自動取り込みで解析に失敗したとき     | 送り主と件名。アプリで確認するよう案内する                   |
 
+- 通知はすべて bot の持ち主への DM で送る（→ [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md)）。現金の記録で予算の閾値を超えたときは bot が返事の後に送り、それ以外は API のプロセスの通知（`notifier`）が送る。
 - README の「月末に届く」は、月末日の深夜の支払いと遅れて届く利用通知メールを取りこぼさないよう、**翌月1日の朝**に送る形にしている（→ 残課題 R-3）。
 - 予算の到達は、同じ月・同じ閾値につき **1回だけ** 送る（`notification_log` で管理）。修正で下回ってから再び超えても再送しない。
 - 予算の到達を判定するのは、**支払日が今月以降の記録だけ**。遅れて届いた前月分のメールでは通知しない。
@@ -178,12 +204,16 @@ sequenceDiagram
 |              | `importer`       | Gmail から未処理のメールを取り出し、解析して記録する一連の取り込みを行う     |
 |              | `reporter`       | 期間を集計し、まとめを組み立てて通知に渡す                                    |
 | 外部接続     | `gmail_client`   | Gmail API との認証とメールの取得だけを行う                                    |
-|              | `notifier`       | 記録用チャンネルへのメッセージ送信だけを行う                                  |
-|              | `discord_bot`    | Discord のイベント（メッセージ・リアクション）を受けて、サービス層を呼ぶ      |
-|              | `api`            | スマホアプリ向けの REST API を提供する                                        |
+|              | `notifier`       | bot の持ち主への DM の送信だけを、Discord の HTTP の API で行う               |
+|              | `discord_bot`    | Discord のイベント（DM のメッセージ・リアクション）を受けて、REST API を呼ぶ   |
+|              | `api_client`     | bot から REST API を HTTP で呼び、JSON と `model` の構造を相互に変換する      |
+|              | `api`            | スマホアプリと bot 向けの REST API を提供する                                 |
 |              | `scheduler`      | 取り込み・週のまとめ・月のまとめを決まった時刻に起動する                      |
 | 起動         | `config`         | 環境変数と設定ファイル（支払い手段の締め日のルールを含む）から設定値を読み込む |
-|              | `main`           | 各部品を組み立て、bot・API・定期実行を1つのプロセスで起動する                 |
+|              | `api.__main__`   | REST API と定期実行を組み立てて、API のプロセスを起動する                     |
+|              | `bot.__main__`   | Discord bot を組み立てて、bot のプロセスを起動する                            |
+
+- `discord_bot` と `api_client` は bot のプロセスで動き、`tsukena/bot/` に置く。それ以外は API のプロセスで動く（`model` と純粋ロジックの `summary` は bot のプロセスからも使う）。
 
 ### 5.1 スマホアプリ（`app/lib`）
 
@@ -225,16 +255,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    MAIN(["main"]) --> BOT(["discord_bot"])
-    MAIN --> API(["api"])
-    MAIN --> SCH(["scheduler"])
+    BMAIN(["bot.__main__"]) --> BOT(["discord_bot"])
+    AMAIN(["api.__main__"]) --> API(["api"])
+    AMAIN --> SCH(["scheduler"])
 
-    BOT --> REC(["recorder"])
-    BOT --> CLS(["classifier"])
-    BOT --> CP(["cash_parser"])
+    BOT --> APIC(["api_client"])
     BOT --> SUM(["summary"])
-    API --> REC
-    API --> CLS
+    APIC -.->|"HTTP"| API
+    API --> CP(["cash_parser"])
+    API --> REC(["recorder"])
+    API --> CLS(["classifier"])
     API --> REPO(["repository"])
     SCH --> IMP(["importer"])
     SCH --> RPT(["reporter"])
@@ -256,10 +286,12 @@ flowchart TD
 ```
 
 - すべてのモジュールは `model` と `config` を参照してよい（図では省略）。
+- bot のプロセスの側（`bot.__main__` / `discord_bot` / `api_client`）は、API のプロセスの側を import しない。API との間は HTTP（図の点線）だけでつながる（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
+  bot の側が import してよいのは `model`・`config` と、純粋ロジックの `summary` だけとする。サービス層・`repository`・DB のファイルは知らない。
 - **上から下への一方向だけ**。下の層は上の層を知らない（`recorder` は Discord も Gmail も知らない）。
 - 純粋ロジック（`normalize` / `cash_parser` / `mail_parser` / `paid_date` / `budget` / `summary`）は DB も外部サービスも呼ばない。
   入力だけから結果が決まる関数として作り、単体テストの中心にする。
-- 外部サービスを呼ぶのは `gmail_client` / `notifier` / `discord_bot` だけ。サービス層のテストではこれらを差し替える。
+- 外部サービスを呼ぶのは `gmail_client` / `notifier` / `discord_bot` / `api_client` だけ。サービス層のテストでは `gmail_client` と `notifier` を、bot のテストでは `api_client` を差し替える。
 - `importer` が取り込み失敗を通知するときも、`notifier` に文面を渡すだけにする（文面は `summary` が組み立てる）。
 
 ## 7. データフロー
@@ -268,15 +300,15 @@ flowchart TD
 
 | 値               | 確定させる場所          | 決め方                                                                 |
 | ---------------- | ----------------------- | ---------------------------------------------------------------------- |
-| 利用日           | `mail_parser` / `discord_bot` | メールの利用日（本文）、または Discord のメッセージ送信時刻（JST）の日付 |
+| 利用日           | `mail_parser` / `api` | メールの利用日（本文）、または Discord のメッセージ送信時刻（JST）の日付。送信時刻は bot が API に渡す |
 | 時刻             | 同上                    | メールに利用時刻があれば入れ、無ければ空。**受信時刻では埋めない**（日付がずれるため） |
 | 支払日           | `recorder`（`paid_date` を使う） | 利用日と支払い手段の締め日のルールから計算する（→ [7.1](#71-支払日の決め方)） |
 | 金額             | `mail_parser` / `cash_parser` | 円単位の正の整数。カンマ・「円」・全角数字を取り除いた結果           |
 | 店名・メモ       | `mail_parser` / `cash_parser` | 表示用に**生の文字列のまま**持つ。正規化した値は別に持つ          |
 | 照合キー         | `classifier`（`normalize` を使う） | 店名・メモを正規化した値（`merchant_key`）                     |
 | カテゴリ・状態   | `classifier`            | → [8. 分類の方針](#8-分類の方針)                                       |
-| 支払い手段       | `mail_parser` / `discord_bot` | メールの送り主に対応する名前（例: 楽天カード）、bot なら「現金」   |
-| 重複排除キー     | `mail_parser` / `discord_bot` | `gmail:{message_id}:{メール内の連番}` / `discord:{message_id}`     |
+| 支払い手段       | `mail_parser` / `api` | メールの送り主に対応する名前（例: 楽天カード）、bot から送られた記録なら「現金」 |
+| 重複排除キー     | `mail_parser` / `api` | `gmail:{message_id}:{メール内の連番}` / `discord:{message_id}`（Discord のメッセージの ID は bot が API に渡す） |
 | 集計の月         | `budget` / `reporter`   | **支払日** が属する月（JST）                                           |
 | 集計の週         | `reporter`              | **利用日** が属する週（JST）。週は月曜始まり・日曜終わり               |
 | 収入の日付・金額・メモ | `api`             | アプリで入力した値。金額は円単位の正の整数、メモは生の文字列のまま持つ |
@@ -315,7 +347,7 @@ withdrawal_month_offset = 1     # 締めた月の何か月後に引き落とす�
 - 締め日・引き落とし日が、その月に無い日（2月30日など）のときは、その月の末日とする。
 - 土日祝による引き落とし日の繰り延べは計算しない。ずれが問題になる場合はアプリで支払日を直す（→ 残課題 R-10）。
 - 分割払い・ボーナス払い・リボ払いは扱わず、すべて1回払いとして計算する。
-- `mail_parser` の登録表と `discord_bot` が使う支払い手段は、すべて設定ファイルにルールを持たなければならない。
+- `mail_parser` の登録表と、bot から送られた記録に使う支払い手段（`現金`）は、すべて設定ファイルにルールを持たなければならない。
   起動時に照合し、ルールの無い支払い手段があればプロセスを起動しない（黙って利用日で埋めないため）。
 
 ## 8. 分類の方針
@@ -397,7 +429,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | テーブル           | 内容                                                                 |
 | ------------------ | -------------------------------------------------------------------- |
 | `merchant_rules`   | `merchant_key`（主キー）→ `category_id` の分類ルール                  |
-| `settings`         | 月の予算、記録用チャンネル ID、自分の Discord ユーザー ID、Gmail ラベル名など |
+| `settings`         | 月の予算、Gmail ラベル名。1行だけ持つ。Discord の ID は持たない（→ [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md)） |
 | `notification_log` | 送った通知の種類と対象期間（例: `budget_80` / `2026-09`）。一意制約で重複送信を防ぐ |
 | `import_failures`  | 解析できなかったメールの `message_id`・送り主・件名・理由・日時       |
 | `deleted_refs`     | 削除した記録の `source_ref`                                          |
@@ -420,13 +452,16 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 
 ### 10.2 REST API（スマホアプリ向け）
 
-すべて `Authorization: Bearer {トークン}` を必要とする（トークンはサーバーの設定に1つだけ持つ）。
+スマホアプリと bot が呼ぶ。見出しの「スマホアプリ向け」は、他の文書からの参照（アンカー）を保つために残している。
+
+すべて `Authorization: Bearer {トークン}` を必要とする。トークンはスマホアプリ用と bot 用の2つをサーバーの設定に持ち、エンドポイントごとにどちらで呼べるかを決める（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
+現金の記録（`POST /cash-records`）は bot 用のトークンでしか呼べない。スマホアプリから支出を追加できない方針（→ [4.3](#43-スマホアプリ修正確認待ち振り返り収入)）を、API の側で守るためである。
 各エンドポイントの入力・出力・エラーは [API 一覧](./api_list.md) で定める。
 
 | メソッド | パス                               | 内容                                         |
 | -------- | ---------------------------------- | -------------------------------------------- |
 | GET      | `/months/{YYYY-MM}/summary`        | 月の収入合計・支出合計・収支・予算・残り・カテゴリ別の内訳（支出は支払日、収入は入金日で数える） |
-| GET      | `/transactions?month=&status=`     | 記録の一覧（月・状態で絞り込み。月は支払日で絞り込む） |
+| GET      | `/transactions?month=&status=&source_ref=` | 記録の一覧（月・状態・重複排除キーで絞り込み。月は支払日で絞り込む。重複排除キーは bot がリアクションから記録を探すときに使う） |
 | PATCH    | `/transactions/{id}`               | 記録の修正（カテゴリを選ぶと確定・ルール学習） |
 | DELETE   | `/transactions/{id}`               | 記録の削除                                   |
 | GET      | `/incomes?month=`                  | 収入の一覧（入金日の月で絞り込み）           |
@@ -438,6 +473,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | PATCH    | `/categories/{id}`                 | 名前・絵文字・表示順の変更                   |
 | GET/PUT  | `/budget`                          | 月の予算の取得・変更                         |
 | GET      | `/import-failures`                 | 取り込めなかったメールの一覧                 |
+| POST     | `/cash-records`                    | 現金の記録（bot 用のトークンだけ。Discord のメッセージの本文・ID・送信時刻を受け取り、分解して記録する） |
 | GET      | `/oauth/google/start`              | Gmail 連携の開始（Google の同意画面へ）       |
 | GET      | `/oauth/google/callback`           | Gmail 連携の完了（認証情報を保存）           |
 
@@ -447,9 +483,10 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | -------------- | -------------------------------------------------------------------- |
 | 利用者         | 1人。ユーザー管理・権限管理は持たない                                 |
 | Gmail の権限   | `gmail.readonly` を使う。スコープはラベル単位に絞れないため、**アプリ側で `家計簿` ラベルのメールだけを問い合わせる** |
-| 外部への公開   | スマホアプリから API に届く経路が必要（→ 残課題 R-1）。Discord bot と Gmail はサーバーからの外向き通信だけで動く |
-| 秘密情報       | Discord のトークン、API トークン、Google のクライアント情報は環境変数で渡し、リポジトリに入れない |
-| 障害時         | 取り込みで例外が起きても、プロセスは止めず次の周期で再試行する。解析できないメールは `import_failures` に残して通知する |
+| 外部への公開   | スマホアプリから API に届く経路が必要（→ 残課題 R-1）。bot から API へは同じ機械の中で呼ぶ。Discord bot と Gmail はサーバーからの外向き通信だけで動く |
+| 秘密情報       | Discord の bot のトークン、API のトークン（アプリ用・bot 用）、Google のクライアント情報は環境変数で渡し、リポジトリに入れない。Discord の bot のトークンは、bot のプロセスと API のプロセス（通知の送信）の両方が使う |
+| 障害時         | 取り込みで例外が起きても、プロセスは止めず次の周期で再試行する。解析できないメールは `import_failures` に残して通知する。bot のプロセスと API のプロセスは別々に止まり、別々に再起動する |
+| 同時の書き込み | SQLite を開くのは API のプロセスだけ（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。API の中でもリクエストは複数のスレッドで動くため、WAL モードとロック待ち（`busy_timeout`）を指定し、待ちきれなかったときは書き込みの例外として扱う |
 | ログ           | 標準出力に出し、常駐の仕組み（systemd など）に集めさせる              |
 | バックアップ   | SQLite ファイルを毎日1回コピーする（→ 残課題 R-2）                   |
 
@@ -463,7 +500,17 @@ Tsukena/
 │   ├── module/                … モジュール設計書（{module}_design.md）
 │   └── test/
 │       └── ut-test-design.csv … 単体テスト設計書
+├── db/                       … SQLite の DB（tsukena.db）。git では管理しない
+├── sql/
+│   ├── create_tables.sql      … テーブルの定義
+│   └── sample/                … テーブルごとのサンプルデータ（NN_{テーブル名}.sql。番号の順に流す）
 ├── tsukena/                   … サーバー（Python パッケージ）
+│   ├── api/                   … REST API（`python -m tsukena.api` で起動する）
+│   │   └── __main__.py        … API と定期実行のプロセスの起動
+│   ├── bot/                   … Discord bot（`python -m tsukena.bot` で起動する）
+│   │   ├── __main__.py        … bot のプロセスの起動
+│   │   ├── discord_bot.py
+│   │   └── api_client.py      … REST API の呼び出し
 │   └── mail_parser/           … 送り主ごとの解析器を置く
 ├── tests/
 │   └── tsukena/               … test__{module}.py
