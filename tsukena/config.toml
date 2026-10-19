@@ -1,2 +1,6 @@
 [database]
 path = "../db/tsukena.db"
+
+[web]
+# Web 版のアプリのビルド結果（flutter build web の出力先）。無ければ API だけを動かす
+dir = "../app/build/web"

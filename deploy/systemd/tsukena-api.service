@@ -1,0 +1,18 @@
+# REST API（と、今後の定期実行）のプロセス。/etc/systemd/system/ に置く（→ docs/deploy.md）
+[Unit]
+Description=Tsukena API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tsukena
+WorkingDirectory=/opt/tsukena
+# トークンは /opt/tsukena/.env から読む（tsukena.api.__main__ の load_dotenv）
+ExecStart=/opt/tsukena/.venv/bin/python -m tsukena.api
+# 落ちても別々に再起動する（→ docs/design.md 11 障害時）
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

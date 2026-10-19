@@ -1,0 +1,11 @@
+# DB のバックアップを毎日 4:00 に取る（→ docs/design.md 11 バックアップ）
+[Unit]
+Description=Tsukena DB backup (daily)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+# 電源が切れていて時刻を過ぎたときは、次に起動したときに取る
+Persistent=true
+
+[Install]
+WantedBy=timers.target

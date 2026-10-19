@@ -1,0 +1,10 @@
+# Cloudflare Tunnel の設定の見本。/etc/cloudflared/config.yml に置く（→ docs/deploy.md、ADR-0009）
+# <TUNNEL_ID> と tsukena.example.com は、自分のものに置き換える
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # Web 版のアプリと API は同じオリジンで、どちらも API のプロセスが返す
+  - hostname: tsukena.example.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404

@@ -1,0 +1,18 @@
+# Discord bot のプロセス。/etc/systemd/system/ に置く（→ docs/deploy.md）
+[Unit]
+Description=Tsukena Discord bot
+After=network-online.target tsukena-api.service
+Wants=network-online.target
+# Requires=tsukena-api.service にはしない。API の再起動に巻き込まれて bot が止まるため。
+# API が止まっている間も bot は動き続け、記録できないことを DM で返事する
+
+[Service]
+Type=simple
+User=tsukena
+WorkingDirectory=/opt/tsukena
+ExecStart=/opt/tsukena/.venv/bin/python -m tsukena.bot
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

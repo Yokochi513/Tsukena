@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from ..model.api_tokens import ApiTokens
 from ..model.enum.record_outcome import RecordOutcome
@@ -47,7 +48,9 @@ APP_OR_BOT = Depends(allow(Caller.APP, Caller.BOT))
 BOT_ONLY = Depends(allow(Caller.BOT))
 
 
-def create_app(db_path: Path, api_tokens: ApiTokens) -> FastAPI:
+def create_app(
+    db_path: Path, api_tokens: ApiTokens, web_dir: Path | None = None
+) -> FastAPI:
     app = FastAPI(title="Tsukena API")
     app.state.db_path = db_path
     app.state.api_tokens = api_tokens
@@ -187,6 +190,11 @@ def create_app(db_path: Path, api_tokens: ApiTokens) -> FastAPI:
         if result.outcome is not RecordOutcome.RECORDED:
             response.status_code = 200
         return RecordResultOut.from_model(result)
+
+    # Web 版のアプリを API と同じオリジンから配信する（→ ADR-0009）。同じオリジンなので CORS が要らない。
+    # 上で登録した API のパスが先に照合されるため、それ以外のパスだけがここに来る
+    if web_dir is not None:
+        app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
 
     return app
 

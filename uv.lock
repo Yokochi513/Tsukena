@@ -919,6 +919,7 @@ name = "tsukena"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "discord-py" },
     { name = "fastapi" },
     { name = "python-dotenv" },
@@ -927,6 +928,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.14" },
     { name = "discord-py", specifier = ">=2.7.1" },
     { name = "fastapi", specifier = ">=0.143.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },

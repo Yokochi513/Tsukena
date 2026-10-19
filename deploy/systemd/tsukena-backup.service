@@ -1,0 +1,9 @@
+# DB のバックアップ。tsukena-backup.timer から毎日呼ばれる
+[Unit]
+Description=Tsukena DB backup
+
+[Service]
+Type=oneshot
+User=tsukena
+WorkingDirectory=/opt/tsukena
+ExecStart=/opt/tsukena/.venv/bin/python -m tsukena.backup /opt/tsukena/backup

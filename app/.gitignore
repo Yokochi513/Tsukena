@@ -47,4 +47,4 @@ app.*.map.json
 .widget_preview/
 
 # ビルドするときに --dart-define-from-file で渡す設定。API のトークンを含むため管理しない
-/dart_defines.json
+/dart_defines*.json

@@ -23,3 +23,6 @@ htmlcov/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# バックアップ（python -m tsukena.backup の保存先）
+/backup/
