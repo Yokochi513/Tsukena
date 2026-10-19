@@ -1,7 +1,7 @@
 import uvicorn
 
-from .api.app import create_app
-from .config import load_db_path
+from ..config import load_db_path
+from .app import create_app
 
 
 def main() -> None:
