@@ -1,2 +1,2 @@
 [database]
-path = "../tsukena.db"
+path = "../db/tsukena.db"

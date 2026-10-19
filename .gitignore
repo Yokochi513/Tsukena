@@ -16,6 +16,9 @@ htmlcov/
 .env
 .env.*
 
+# SQLite の DB（sql/ のテーブル作成とサンプルデータから作る）
+/db/
+
 # SQLite の一時ファイル
 *.db-journal
 *.db-wal
