@@ -162,9 +162,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
 
     setState(() => _saving = true);
     try {
-      await TransactionService(
-        baseUrl: 'http://127.0.0.1:8000',
-      ).patchTransaction(original.id, update);
+      await TransactionService().patchTransaction(original.id, update);
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -209,9 +207,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
 
     if (confirmed != true) return;
 
-    await TransactionService(
-      baseUrl: 'http://127.0.0.1:8000',
-    ).deleteTransaction(transaction.id);
+    await TransactionService().deleteTransaction(transaction.id);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }

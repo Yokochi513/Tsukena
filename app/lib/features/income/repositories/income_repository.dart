@@ -2,15 +2,20 @@ import 'dart:convert';
 
 import 'package:tsukena/features/income/entities/income.dart';
 import 'package:http/http.dart' as http;
+import 'package:tsukena/core/api_config.dart';
 import 'package:tsukena/features/income/entities/income_input.dart';
 
 class IncomeService {
-  IncomeService({required this.baseUrl});
+  // 接続先はテストで差し替えられるよう引数でも受け取る。省略すると起動時に渡した値を使う
+  IncomeService({this.baseUrl = ApiConfig.baseUrl});
 
   final String baseUrl;
 
   Future<List<Income>> getIncomes() async {
-    final response = await http.get(Uri.parse('$baseUrl/incomes'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/incomes'),
+      headers: ApiConfig.headers,
+    );
 
     if (response.statusCode != 200) {
       throw Exception('収入の取得に失敗しました');
@@ -26,7 +31,7 @@ class IncomeService {
   Future<Income> postIncome(IncomeInput incomeInput) async {
     final response = await http.post(
       Uri.parse('$baseUrl/incomes'),
-      headers: {'Content-Type': 'application/json'},
+      headers: ApiConfig.headers,
       body: jsonEncode(incomeInput.toJson()),
     );
 
@@ -40,7 +45,7 @@ class IncomeService {
   Future<Income> patchIncome(int incomeId, IncomeInput incomeInput) async {
     final response = await http.patch(
       Uri.parse('$baseUrl/incomes/$incomeId'),
-      headers: {'Content-Type': 'application/json'},
+      headers: ApiConfig.headers,
       body: jsonEncode(incomeInput.toJson()),
     );
 
@@ -52,7 +57,10 @@ class IncomeService {
   }
 
   Future<void> deleteIncome(int incomeId) async {
-    final response = await http.delete(Uri.parse('$baseUrl/incomes/$incomeId'));
+    final response = await http.delete(
+      Uri.parse('$baseUrl/incomes/$incomeId'),
+      headers: ApiConfig.headers,
+    );
 
     if (response.statusCode != 204) {
       throw Exception('収入の削除に失敗しました');

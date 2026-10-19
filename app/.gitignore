@@ -45,3 +45,6 @@ app.*.map.json
 /android/app/release
 # Widget Preview related
 .widget_preview/
+
+# ビルドするときに --dart-define-from-file で渡す設定。API のトークンを含むため管理しない
+/dart_defines.json

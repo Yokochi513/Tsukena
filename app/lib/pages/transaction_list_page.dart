@@ -62,11 +62,10 @@ class _TransactionListPageState extends State<TransactionListPage> {
   }
 
   Future<(List<Transaction>, Map<int, Category>)> _load() async {
-    const baseUrl = 'http://127.0.0.1:8000';
     // 二つのAPIが終わるまで待つ
     final (transactions, categories) = await (
-      TransactionService(baseUrl: baseUrl).getTransactions(),
-      CategoryService(baseUrl: baseUrl).getCategories(),
+      TransactionService().getTransactions(),
+      CategoryService().getCategories(),
     ).wait;
     return (transactions, {for (final c in categories) c.id: c});
   }

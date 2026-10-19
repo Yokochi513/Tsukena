@@ -66,7 +66,7 @@ class _ExpenseListPageState extends State<IncomeListPage> {
 
   void _reload() {
     setState(() {
-      _incomes = IncomeService(baseUrl: 'http://127.0.0.1:8000').getIncomes();
+      _incomes = IncomeService().getIncomes();
     });
   }
 }

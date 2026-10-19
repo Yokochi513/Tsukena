@@ -94,7 +94,7 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
   }
 
   Future<void> _save() async {
-    final service = IncomeService(baseUrl: 'http://127.0.0.1:8000');
+    final service = IncomeService();
     final income = widget.income;
     if (_isEdit) {
       await service.patchIncome(income!.id, fieldInput);
@@ -133,9 +133,7 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
 
     if (confirmed != true) return;
 
-    await IncomeService(
-      baseUrl: 'http://127.0.0.1:8000',
-    ).deleteIncome(income.id);
+    await IncomeService().deleteIncome(income.id);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }

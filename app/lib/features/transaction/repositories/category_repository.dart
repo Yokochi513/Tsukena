@@ -1,16 +1,21 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:tsukena/core/api_config.dart';
 import 'package:tsukena/features/transaction/entities/category.dart';
 import 'package:tsukena/features/transaction/entities/category_input.dart';
 
 class CategoryService {
-  CategoryService({required this.baseUrl});
+  // 接続先はテストで差し替えられるよう引数でも受け取る。省略すると起動時に渡した値を使う
+  CategoryService({this.baseUrl = ApiConfig.baseUrl});
 
   final String baseUrl;
 
   Future<List<Category>> getCategories() async {
-    final response = await http.get(Uri.parse('$baseUrl/categories'));
+    final response = await http.get(
+      Uri.parse('$baseUrl/categories'),
+      headers: ApiConfig.headers,
+    );
 
     if (response.statusCode != 200) {
       throw Exception('カテゴリの取得に失敗しました');
@@ -26,7 +31,7 @@ class CategoryService {
   Future<Category> postCategory(CategoryInput categoryInput) async {
     final response = await http.post(
       Uri.parse('$baseUrl/categories'),
-      headers: {'Content-Type': 'application/json'},
+      headers: ApiConfig.headers,
       body: jsonEncode(categoryInput.toJson()),
     );
 
@@ -43,7 +48,7 @@ class CategoryService {
   ) async {
     final response = await http.patch(
       Uri.parse('$baseUrl/categories/$categoryId'),
-      headers: {'Content-Type': 'application/json'},
+      headers: ApiConfig.headers,
       body: jsonEncode(categoryInput.toJson()),
     );
 
