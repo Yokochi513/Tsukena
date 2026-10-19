@@ -23,7 +23,9 @@ def create_bot() -> discord.Client:
 
     @client.event
     async def on_ready() -> None:
-        logger.info("Discordに接続しました: %s（持ち主の ID: %s）", client.user, owner_id)
+        logger.info(
+            "Discordに接続しました: %s（持ち主の ID: %s）", client.user, owner_id
+        )
 
     @client.event
     async def on_message(message: discord.Message) -> None:

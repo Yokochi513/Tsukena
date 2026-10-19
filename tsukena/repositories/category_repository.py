@@ -48,6 +48,13 @@ def fetch_categories(conn: sqlite3.Connection) -> list[Category]:
     return [_row_to_category(r) for r in rows]
 
 
+def fetch_category(conn: sqlite3.Connection, category_id: int) -> Category | None:
+    row = conn.execute(
+        "SELECT * FROM categories WHERE id = ?", (category_id,)
+    ).fetchone()
+    return _row_to_category(row) if row is not None else None
+
+
 def _row_to_category(row: sqlite3.Row) -> Category:
     return Category(
         id=row["id"],

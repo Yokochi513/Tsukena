@@ -12,3 +12,10 @@ def upsert_merchant_rule(
         """,
         (merchant_key, category_id),
     )
+
+
+def fetch_rule_category_id(conn: sqlite3.Connection, merchant_key: str) -> int | None:
+    row = conn.execute(
+        "SELECT category_id FROM merchant_rules WHERE merchant_key = ?", (merchant_key,)
+    ).fetchone()
+    return row["category_id"] if row is not None else None

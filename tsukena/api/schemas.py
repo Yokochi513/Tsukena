@@ -1,11 +1,13 @@
 import datetime
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_serializer, field_validator
 
 from ..model.category_model import Category, CategoryInput
+from ..model.enum.record_outcome import RecordOutcome
 from ..model.enum.source import Source
 from ..model.enum.status import Status
 from ..model.income_model import Income, IncomeInput
+from ..model.record_model import RecordResult
 from ..model.transaction_model import Transaction, TransactionUpdate
 
 
@@ -130,4 +132,30 @@ class TransactionUpdateIn(BaseModel):
             amount=self.amount,
             merchant=self.merchant,
             category_id=self.category_id,
+        )
+
+
+class CashRecordIn(BaseModel):
+    text: str  # 加工せずに受け取る。分解はサーバーが行う
+    message_id: str = Field(pattern=r"^[0-9]+$")
+    sent_at: AwareDatetime  # タイムゾーンが無ければ 422 にする
+
+
+class RecordResultOut(BaseModel):
+    outcome: RecordOutcome
+    transaction: TransactionOut | None
+    category: CategoryOut | None
+    # TODO: budget モジュールができたら、予算の状態を返す（→ docs/api_list.md 2.8）
+    budget: None = None
+
+    @classmethod
+    def from_model(cls, r: RecordResult) -> "RecordResultOut":
+        return cls(
+            outcome=r.outcome,
+            transaction=TransactionOut.from_model(r.transaction)
+            if r.transaction is not None
+            else None,
+            category=CategoryOut.from_model(r.category)
+            if r.category is not None
+            else None,
         )

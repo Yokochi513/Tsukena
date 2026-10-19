@@ -24,6 +24,21 @@ class Transaction:
 
 
 @dataclass(frozen=True)
+class TransactionInput:
+    occurred_date: datetime.date
+    occurred_time: datetime.time | None
+    paid_date: datetime.date
+    amount: int
+    merchant: str
+    merchant_key: str
+    category_id: int | None
+    status: Status
+    payment_method: str
+    source: Source
+    source_ref: str
+
+
+@dataclass(frozen=True)
 class TransactionUpdate:
     # None は「変えない」を表す。カテゴリを未設定に戻す指示は表せない
     occurred_date: datetime.date | None = None

@@ -2,9 +2,11 @@ import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from ..model.api_tokens import ApiTokens
+from ..model.enum.record_outcome import RecordOutcome
 from ..model.enum.status import Status
 from ..repositories.category_repository import (
     fetch_categories,
@@ -23,23 +25,33 @@ from ..services.transaction_service import (
     CategoryNotFoundError,
     InvalidPaidDateError,
     TransactionNotFoundError,
+    UnparsableMessageError,
     modify_transaction,
+    record_cash,
 )
+from .auth import Caller, allow
 from .schemas import (
+    CashRecordIn,
     CategoryIn,
     CategoryOut,
     IncomeIn,
     IncomeOut,
+    RecordResultOut,
     TransactionOut,
     TransactionUpdateIn,
 )
 
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+APP_ONLY = Depends(allow(Caller.APP))
+APP_OR_BOT = Depends(allow(Caller.APP, Caller.BOT))
+BOT_ONLY = Depends(allow(Caller.BOT))
 
 
-def create_app(db_path: Path) -> FastAPI:
+def create_app(db_path: Path, api_tokens: ApiTokens) -> FastAPI:
     app = FastAPI(title="Tsukena API")
-    app.state.db_path = db_path  # ① 設定を app に持たせる
+    app.state.db_path = db_path
+    app.state.api_tokens = api_tokens
+
     # Flutter Web の開発サーバーはポートが毎回変わるため、ローカルのオリジンをポート問わず許可する
     app.add_middleware(
         CORSMiddleware,
@@ -47,7 +59,9 @@ def create_app(db_path: Path) -> FastAPI:
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
     )
 
-    @app.get("/transactions", response_model=list[TransactionOut])
+    @app.get(
+        "/transactions", response_model=list[TransactionOut], dependencies=[APP_OR_BOT]
+    )
     def get_transactions(
         month: str | None = Query(None, pattern=MONTH_PATTERN),
         status: Status | None = None,
@@ -58,7 +72,11 @@ def create_app(db_path: Path) -> FastAPI:
             for t in fetch_transactions(conn, month=month, status=status)
         ]
 
-    @app.patch("/transactions/{transaction_id}", response_model=TransactionOut)
+    @app.patch(
+        "/transactions/{transaction_id}",
+        response_model=TransactionOut,
+        dependencies=[APP_OR_BOT],
+    )
     def patch_transaction(
         transaction_id: int,
         body: TransactionUpdateIn,
@@ -78,26 +96,32 @@ def create_app(db_path: Path) -> FastAPI:
             ) from None
         return TransactionOut.from_model(transaction)
 
-    @app.delete("/transactions/{transaction_id}", status_code=204)
+    @app.delete(
+        "/transactions/{transaction_id}", status_code=204, dependencies=[APP_ONLY]
+    )
     def delete_transaction(
         transaction_id: int,
         conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
     ):
         if not remove_transaction(conn, transaction_id):
-            raise HTTPException(status_code=404, detail="Income not found")
+            raise HTTPException(status_code=404, detail="Transaction not found")
 
-    @app.get("/incomes", response_model=list[IncomeOut])
+    @app.get("/incomes", response_model=list[IncomeOut], dependencies=[APP_ONLY])
     def get_incomes(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return [IncomeOut.from_model(income) for income in fetch_incomes(conn)]
 
-    @app.post("/incomes", response_model=IncomeOut, status_code=201)
+    @app.post(
+        "/incomes", response_model=IncomeOut, status_code=201, dependencies=[APP_ONLY]
+    )
     def post_income(
         body: IncomeIn,
         conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
     ):
         return IncomeOut.from_model(insert_income(conn, body.to_model()))
 
-    @app.patch("/incomes/{income_id}", response_model=IncomeOut)
+    @app.patch(
+        "/incomes/{income_id}", response_model=IncomeOut, dependencies=[APP_ONLY]
+    )
     def patch_income(
         income_id: int,
         body: IncomeIn,
@@ -109,20 +133,27 @@ def create_app(db_path: Path) -> FastAPI:
             raise HTTPException(status_code=404, detail="Income not found")
         return IncomeOut.from_model(income)
 
-    @app.delete("/incomes/{income_id}", status_code=204)
+    @app.delete("/incomes/{income_id}", status_code=204, dependencies=[APP_ONLY])
     def delete_income(income_id: int, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         if not remove_income(conn, income_id):
             raise HTTPException(status_code=404, detail="Income not found")
 
-    @app.get("/categories", response_model=list[CategoryOut])
+    @app.get("/categories", response_model=list[CategoryOut], dependencies=[APP_OR_BOT])
     def get_categories(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return [CategoryOut.from_model(category) for category in fetch_categories(conn)]
 
-    @app.post("/categories", response_model=CategoryOut, status_code=201)
+    @app.post(
+        "/categories",
+        response_model=CategoryOut,
+        status_code=201,
+        dependencies=[APP_ONLY],
+    )
     def post_category(body: CategoryIn, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return CategoryOut.from_model(insert_category(conn, body.to_model()))
 
-    @app.patch("/categories/{category_id}", response_model=CategoryOut)
+    @app.patch(
+        "/categories/{category_id}", response_model=CategoryOut, dependencies=[APP_ONLY]
+    )
     def patch_category(
         category_id: int,
         body: CategoryIn,
@@ -133,6 +164,26 @@ def create_app(db_path: Path) -> FastAPI:
         if category is None:
             raise HTTPException(status_code=404, detail="Category not found")
         return CategoryOut.from_model(category)
+
+    @app.post(
+        "/cash-records",
+        response_model=RecordResultOut,
+        status_code=201,
+        dependencies=[BOT_ONLY],
+    )
+    def post_cash_record(
+        body: CashRecordIn,
+        response: Response,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        try:
+            result = record_cash(conn, body.text, body.message_id, body.sent_at)
+        except UnparsableMessageError:
+            raise HTTPException(status_code=400, detail="unparsable") from None
+        # 記録しなかった（重複・削除済み）ときは、新しく作っていないので 200 にする
+        if result.outcome is not RecordOutcome.RECORDED:
+            response.status_code = 200
+        return RecordResultOut.from_model(result)
 
     return app
 

@@ -3,7 +3,7 @@ import sqlite3
 
 from ..model.enum.source import Source
 from ..model.enum.status import Status
-from ..model.transaction_model import Transaction
+from ..model.transaction_model import Transaction, TransactionInput
 
 
 def fetch_transactions(
@@ -43,6 +43,51 @@ def fetch_transaction(
         "SELECT * FROM transactions WHERE id = ?", (transaction_id,)
     ).fetchone()
     return _row_to_transaction(row) if row is not None else None
+
+
+def insert_transaction(
+    conn: sqlite3.Connection, t: TransactionInput, now: datetime.datetime
+) -> Transaction:
+    # 重複の確認と同じ単位で確定させたいため、commit は呼び出す側が行う
+    cur = conn.execute(
+        """
+        INSERT INTO transactions (
+            occurred_date, occurred_time, paid_date, amount, merchant, merchant_key,
+            category_id, status, payment_method, source, source_ref,
+            created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            t.occurred_date.isoformat(),
+            t.occurred_time.strftime("%H:%M") if t.occurred_time is not None else None,
+            t.paid_date.isoformat(),
+            t.amount,
+            t.merchant,
+            t.merchant_key,
+            t.category_id,
+            t.status.value,
+            t.payment_method,
+            t.source.value,
+            t.source_ref,
+            now.isoformat(),
+            now.isoformat(),
+        ),
+    )
+    return Transaction(id=cur.lastrowid, created_at=now, updated_at=now, **vars(t))
+
+
+def source_ref_exists(conn: sqlite3.Connection, source_ref: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM transactions WHERE source_ref = ?", (source_ref,)
+    ).fetchone()
+    return row is not None
+
+
+def deleted_ref_exists(conn: sqlite3.Connection, source_ref: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM deleted_refs WHERE source_ref = ?", (source_ref,)
+    ).fetchone()
+    return row is not None
 
 
 def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
