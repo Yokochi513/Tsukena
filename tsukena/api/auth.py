@@ -2,9 +2,15 @@ import secrets
 from collections.abc import Callable
 from enum import Enum
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ..model.api_tokens import ApiTokens
+
+# Header で受けると、Swagger UI は Authorization ヘッダーを送らない（OpenAPI の仕様で無視される）。
+# 認証の仕組みとして宣言し、Swagger UI の Authorize ボタンから送れるようにする。
+# トークンが無いときの応答を自分で決めるため、auto_error は切る
+_bearer = HTTPBearer(auto_error=False)
 
 
 class Caller(Enum):
@@ -12,12 +18,13 @@ class Caller(Enum):
     APP = "app"
 
 
-def get_caller(request: Request, authorization: str | None = Header(None)) -> Caller:
-    if authorization is None:
+def get_caller(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),  # noqa: B008
+) -> Caller:
+    if credentials is None:
         raise HTTPException(status_code=401, detail="Missing token")
-    scheme, _, token = authorization.partition(" ")
-    if scheme != "Bearer":
-        raise HTTPException(status_code=401, detail="Missing token")
+    token = credentials.credentials
 
     tokens: ApiTokens = request.app.state.api_tokens
 
@@ -28,9 +35,9 @@ def get_caller(request: Request, authorization: str | None = Header(None)) -> Ca
     raise HTTPException(status_code=401, detail="Invalid token")
 
 
-def allow(*callers: Caller) -> Callable[[Request, str | None], None]:
-    def check(request: Request, authorization: str | None = Header(None)) -> None:
-        if get_caller(request, authorization) not in callers:
+def allow(*callers: Caller) -> Callable[[Caller], None]:
+    def check(caller: Caller = Depends(get_caller)) -> None:  # noqa: B008
+        if caller not in callers:
             raise HTTPException(status_code=403, detail="Not allowed")
 
     return check
