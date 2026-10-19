@@ -119,8 +119,16 @@ def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
 
 
 def remove_transaction(conn: sqlite3.Connection, transaction_id: int) -> bool:
-    cur = conn.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
-    conn.commit()
+    # 重複排除キーを残し、同じメッセージやメールから記録が復活しないようにする（→ docs/api_list.md 2.2）
+    with conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO deleted_refs (source_ref)
+            SELECT source_ref FROM transactions WHERE id = ?
+            """,
+            (transaction_id,),
+        )
+        cur = conn.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
     return cur.rowcount > 0
 
 
