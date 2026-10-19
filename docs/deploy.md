@@ -24,7 +24,7 @@ https://yokochi513.github.io/Tsukena/   │
 | Linux のサーバー | 64 ビットの Raspberry Pi OS（Bookworm 以降）や Ubuntu など。Python 3.11 以上が入っていること（`python3 --version`） |
 | Cloudflare のアカウント | 無料のプランでよい |
 | ドメイン | Cloudflare で DNS を管理しているもの。以下では API のホスト名を `tsukena.example.com` と書く |
-| GitHub | 非公開のリポジトリで Pages を使うため、有料プラン（Pro 以上）が要る |
+| GitHub | 公開のリポジトリ（`Yokochi513/Tsukena`）。無料のプランで Pages を使う |
 | Discord の bot | Developer Portal で作った bot のトークン。自分しかいないサーバーに招待しておく（README「初期設定」） |
 
 ## 1. サーバーにコードを置く
@@ -42,7 +42,7 @@ cd /opt/tsukena
 sudo -u tsukena /home/tsukena/.local/bin/uv sync --frozen
 ```
 
-リポジトリは非公開なので、clone のときに認証が要る。サーバーには、読み取りだけの権限のトークン（GitHub の fine-grained personal access token の Contents: Read-only、または deploy key）を使う。
+GitHub のリポジトリは公開なので、`https://github.com/Yokochi513/Tsukena.git` から認証なしで clone できる。
 
 ## 2. 秘密情報を置く
 
