@@ -169,16 +169,18 @@ sudo systemctl restart tsukena-api
 
 ### 7.3 連携する
 
-アプリにはまだ連携のボタンが無いので、連携を始める URL を API から受け取り、ブラウザで開く。
+アプリの **設定** タブで行う。
+
+1. **Gmail と連携する** を押す。同じタブで Google の同意画面が開く。
+2. 利用通知メールが届くアカウントを選び、Gmail の読み取りを許可する。
+3. 「連携しました」と出れば、サーバーの `creds/token.json` に認証情報が保存されている。ブラウザの「戻る」でアプリに戻る。
+
+アプリが使えないときは、連携を始める URL を API から直接受け取り、10分以内にブラウザで開いてもよい。
 
 ```sh
 curl -s -H "Authorization: Bearer <TSUKENA_APP_API_TOKEN>" https://tsukena.example.com/oauth/google/start
 # {"authorization_url":"https://accounts.google.com/o/oauth2/auth?..."}
 ```
-
-1. `authorization_url` を、10分以内にブラウザで開く。期限を過ぎたら、`curl` からやり直す。
-2. 利用通知メールが届くアカウントを選び、Gmail の読み取りを許可する。
-3. 「連携しました」と出れば、サーバーの `creds/token.json` に認証情報が保存されている。
 
 取り込みは5分ごとに動く。Gmail で、利用通知メールに `家計簿` ラベルを付けるフィルタを作っておく（README「初期設定」）。
 ラベル名を変えるときは、DB の `settings` の `gmail_label` も同じ名前にする。
@@ -193,6 +195,7 @@ curl -s -H "Authorization: Bearer <TSUKENA_APP_API_TOKEN>" https://tsukena.examp
 - [ ] ページを読み込み直しても、トークンを入れ直さずに一覧が出る
 - [ ] Discord で記録すると、アプリの一覧に出る
 - [ ] `家計簿` ラベルの付いた利用通知メールが届いてから5分ほどで、アプリの確認待ちの一覧に出る
+- [ ] 設定タブを開くと、取り込めなかったメールの一覧（無ければ「ありません」）が出る
 - [ ] 翌日、`/opt/tsukena/backup/` にその日のバックアップ（`tsukena-YYYY-MM-DD.db`）ができている
 
 ## 更新するとき
@@ -227,7 +230,9 @@ systemd のファイルを変えたときは、手順4のコピーと `daemon-re
 | Discord に「Gmail との連携が切れているため…」と届く | 手順7.3で連携し直す。7日ごとに届くなら、同意画面の公開ステータスがテストのままになっている（手順7.1の3） |
 | `/oauth/google/start` が `503` を返す | `.env` の `TSUKENA_GOOGLE_REDIRECT_URI` が空か、`creds/credentials.json` が無い。直したら `tsukena-api` を再起動する |
 | Google の画面に `redirect_uri_mismatch` と出る | Google Cloud に登録したリダイレクト URI と `.env` の `TSUKENA_GOOGLE_REDIRECT_URI` が食い違っている |
-| 「リンクの有効期限が切れたか、既に使われています」と出る | URL を受け取ってから10分を過ぎたか、その間に API を再起動した。`curl` からやり直す |
+| 「リンクの有効期限が切れたか、既に使われています」と出る | 同意画面を開いてから10分を過ぎたか、その間に API を再起動した。アプリの **Gmail と連携する** からやり直す |
+| アプリで「サーバーで Gmail 連携の準備ができていません」と出る | `/oauth/google/start` の `503` と同じ。`.env` の `TSUKENA_GOOGLE_REDIRECT_URI` と `creds/credentials.json` を確かめる |
+| 設定タブで「取り込めなかったメールの取得に失敗しました」と出る | サーバーが古い。「更新するとき」の手順で `git pull` して再起動する |
 | メールが取り込まれない | `journalctl -u tsukena-api`。取り込めなかったメールは Discord に通知され、アプリの「取り込めなかったメール」にも残る |
 
 ## まだ決まっていないこと
