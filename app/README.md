@@ -1,5 +1,17 @@
 # Tsukena スマホアプリ
 
+## アプリアイコン
+
+A案（財布とコイン）の元画像は `assets/icon/tsukena-icon.png`。
+Android・iOS・Web用アイコンは、`app/` で次のコマンドを実行して再生成する。
+
+```sh
+flutter pub get
+dart run flutter_launcher_icons
+```
+
+Discord用には `../output/tsukena-discord-icon.png` を使用する。
+
 Flutter（Dart）で開発する、記録修正・確認待ちの分類・振り返り用のアプリ。
 サーバーの REST API を呼び出す構成とする（[基本設計](../docs/design.md)）。
 

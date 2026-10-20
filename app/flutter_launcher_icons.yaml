@@ -1,0 +1,10 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/tsukena-icon.png
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: assets/icon/tsukena-icon.png
+    background_color: "#0C4950"
+    theme_color: "#0C4950"
