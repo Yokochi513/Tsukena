@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/pages/transaction_list_page.dart';
 import 'package:tsukena/pages/income_list_page.dart';
+import 'package:tsukena/pages/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,7 +18,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: [TransactionListPage(), IncomeListPage()],
+        children: [TransactionListPage(), IncomeListPage(), SettingsPage()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -36,6 +37,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: '収入',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: '設定',
           ),
         ],
       ),

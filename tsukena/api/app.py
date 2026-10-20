@@ -18,6 +18,7 @@ from ..repositories.category_repository import (
     update_category,
 )
 from ..repositories.database import connect
+from ..repositories.import_failure_repository import fetch_import_failures
 from ..repositories.income_repository import (
     fetch_incomes,
     insert_income,
@@ -40,6 +41,7 @@ from .schemas import (
     CategoryIn,
     CategoryOut,
     GoogleAuthStartOut,
+    ImportFailureOut,
     IncomeIn,
     IncomeOut,
     RecordResultOut,
@@ -206,6 +208,14 @@ def create_app(
         return RecordResultOut.from_model(result)
 
     @app.get(
+        "/import-failures",
+        response_model=list[ImportFailureOut],
+        dependencies=[APP_ONLY],
+    )
+    def get_import_failures(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        return [ImportFailureOut.from_model(f) for f in fetch_import_failures(conn)]
+
+    @app.get(
         "/oauth/google/start",
         response_model=GoogleAuthStartOut,
         dependencies=[APP_ONLY],
@@ -242,7 +252,8 @@ def create_app(
         if error is not None or code is None:
             # 同意画面で「キャンセル」を選んだ
             return _html_page(
-                "連携しませんでした", "Gmail との連携は行われませんでした。"
+                "連携しませんでした",
+                "Gmail との連携は行われませんでした。ブラウザの「戻る」でアプリに戻ってください。",
             )
         assert google_redirect_uri is not None
         try:
@@ -256,7 +267,8 @@ def create_app(
             )
         return _html_page(
             "連携しました",
-            "Gmail との連携が完了しました。このページを閉じてアプリに戻ってください。",
+            # アプリの Web 版は同意画面を同じタブで開くため、「戻る」でアプリに戻れる
+            "Gmail との連携が完了しました。ブラウザの「戻る」でアプリに戻ってください。",
         )
 
     return app

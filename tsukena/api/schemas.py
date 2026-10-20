@@ -6,6 +6,7 @@ from ..model.category_model import Category, CategoryInput
 from ..model.enum.record_outcome import RecordOutcome
 from ..model.enum.source import Source
 from ..model.enum.status import Status
+from ..model.import_failure_model import ImportFailure
 from ..model.income_model import Income, IncomeInput
 from ..model.record_model import RecordResult
 from ..model.transaction_model import Transaction, TransactionUpdate
@@ -163,3 +164,22 @@ class RecordResultOut(BaseModel):
 
 class GoogleAuthStartOut(BaseModel):
     authorization_url: str
+
+
+class ImportFailureOut(BaseModel):
+    # 本文は持たないので返さない（→ docs/api_list.md 2.6）
+    message_id: str
+    sender: str
+    subject: str
+    reason: str
+    failed_at: datetime.datetime
+
+    @classmethod
+    def from_model(cls, f: ImportFailure) -> "ImportFailureOut":
+        return cls(
+            message_id=f.message_id,
+            sender=f.sender,
+            subject=f.subject,
+            reason=f.reason,
+            failed_at=f.failed_at,
+        )
