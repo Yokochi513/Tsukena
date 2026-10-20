@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from .api_client import ApiClient
 from .discord_bot import create_bot
 
-DEFAULT_API_BASE_URL = "http://127.0.0.1:8000"
+DEFAULT_API_BASE_URL = "http://127.0.0.1:18000"
 
 
 async def run() -> None:

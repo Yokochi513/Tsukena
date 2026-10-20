@@ -30,7 +30,7 @@ async def run() -> None:
         db_path, load_api_token(), load_cors_origins(), load_google_redirect_uri()
     )
     # 外からは Cloudflare Tunnel を通してだけ届かせるため、同じ機械の中でだけ待ち受ける（→ ADR-0009）
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8000))
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=18000))
 
     # 定期実行は REST API と同じイベントループで動かす（→ docs/design.md 3）
     scheduler = create_scheduler(db_path)

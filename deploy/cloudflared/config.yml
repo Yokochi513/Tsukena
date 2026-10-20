@@ -6,5 +6,5 @@ credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
 ingress:
   # API だけを外に出す。Web 版のアプリは GitHub Pages に置く（→ ADR-0010）
   - hostname: tsukena.example.com
-    service: http://127.0.0.1:8000
+    service: http://127.0.0.1:18000
   - service: http_status:404

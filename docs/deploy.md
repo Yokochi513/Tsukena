@@ -11,7 +11,7 @@ Web 版のアプリは GitHub Pages に置く。
 GitHub Pages                     Cloudflare Tunnel ──（サーバーからの外向きの接続。ルーターのポートは開けない）
 https://yokochi513.github.io/Tsukena/   │
                                      ▼  サーバーの中
-                                  cloudflared ─▶ 127.0.0.1:8000  tsukena-api
+                                  cloudflared ─▶ 127.0.0.1:18000 tsukena-api
                                                       ▲
                                                       │ 同じ機械の中で呼ぶ
                                                  tsukena-bot ─▶ Discord
@@ -93,7 +93,7 @@ sudo systemctl enable --now tsukena-api tsukena-bot tsukena-backup.timer
 ```sh
 systemctl status tsukena-api tsukena-bot
 journalctl -u tsukena-bot -n 20     # 「Discordに接続しました」が出ていればよい
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/categories   # 401 ならよい（トークンなしで断られた）
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:18000/categories   # 401 ならよい（トークンなしで断られた）
 ```
 
 Discord で bot に `テスト 1` と送り、返事が来れば bot から API までつながっている。確かめた記録は、後でアプリから消す。
@@ -228,6 +228,7 @@ API と bot は、設定の多くを**起動したときに一度だけ**読む�
 | DB の `settings` の `gmail_label`（ラベル名） | なし | 取り込みのたびに読み直す |
 | systemd のファイル（`deploy/systemd/`） | 手順4のコピー → `sudo systemctl daemon-reload` → 対象を再起動 | systemd は、読み込み直すまで古いファイルの内容で動かす |
 | Cloudflare Tunnel の設定（`/etc/cloudflared/config.yml`） | `sudo systemctl restart cloudflared` | 起動したときに読む |
+| API のポート（`tsukena/api/__main__.py`。今は `18000`） | `/etc/cloudflared/config.yml` の `service` を同じポートにする。`.env` に `TSUKENA_API_BASE_URL` を書いていれば、それも直す。そのうえで `cloudflared`・API・bot を再起動 | Tunnel と bot は、API のポートを設定に持っている。食い違うと、外からも bot からも API に届かない |
 | バックアップ（`tsukena/backup.py`） | なし | タイマーが毎回新しく起動する |
 | アプリ（`app/`） | `master` に push する | GitHub Actions が作り直して Pages に置く。端末ではページを読み込み直す |
 | GitHub の変数 `API_BASE_URL` | Actions で **Deploy web app to Pages** を手で動かす | 変数を変えただけではビルドは動かない |
