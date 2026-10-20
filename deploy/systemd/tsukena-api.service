@@ -1,4 +1,4 @@
-# REST API（と、今後の定期実行）のプロセス。/etc/systemd/system/ に置く（→ docs/deploy.md）
+# REST API と定期実行のプロセス。/etc/systemd/system/ に置く（→ docs/deploy.md）
 [Unit]
 Description=Tsukena API
 After=network-online.target

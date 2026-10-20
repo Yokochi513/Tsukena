@@ -1,8 +1,11 @@
 import os
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from .model.api_tokens import ApiTokens
+from .model.enum.payment_timing import PaymentTiming
+from .model.payment_rule_model import PaymentRule
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config.toml"
 
@@ -18,6 +21,53 @@ def load_cors_origins() -> list[str]:
     with CONFIG_PATH.open("rb") as f:
         config = tomllib.load(f)
     return config["cors"]["origins"]
+
+
+def load_google_redirect_uri() -> str | None:
+    """Gmail 連携で、Google が同意のあとに戻してくる先の URL を返す。設定が無ければ None。
+
+    サーバーごとに違い、自分のドメインを公開のリポジトリに載せないため、環境変数で渡す。
+    """
+    return os.environ.get("TSUKENA_GOOGLE_REDIRECT_URI") or None
+
+
+def load_payment_rules() -> dict[str, PaymentRule]:
+    """支払い手段ごとの締め日のルールを、支払い手段の名前をキーにして返す（→ docs/design.md 7.1）。
+
+    ルールの書き方が誤っていれば ValueError を投げる。誤ったルールで支払日を計算しないため。
+    """
+    with CONFIG_PATH.open("rb") as f:
+        config = tomllib.load(f)
+    return {
+        name: _to_payment_rule(name, values)
+        for name, values in config["payment_methods"].items()
+    }
+
+
+def _to_payment_rule(name: str, values: dict[str, Any]) -> PaymentRule:
+    timing = PaymentTiming(values["timing"])
+    rule = PaymentRule(
+        payment_method=name,
+        timing=timing,
+        closing_day=values.get("closing_day"),
+        withdrawal_day=values.get("withdrawal_day"),
+        withdrawal_month_offset=values.get("withdrawal_month_offset"),
+    )
+    card_values = (rule.closing_day, rule.withdrawal_day, rule.withdrawal_month_offset)
+    if timing == PaymentTiming.IMMEDIATE:
+        if any(v is not None for v in card_values):
+            raise ValueError(f"{name}: 即時の支払い手段に締め日・引き落とし日は書けません")
+        return rule
+
+    if any(v is None for v in card_values):
+        raise ValueError(
+            f"{name}: closing_day・withdrawal_day・withdrawal_month_offset をすべて書いてください"
+        )
+    if not 1 <= values["closing_day"] <= 31 or not 1 <= values["withdrawal_day"] <= 31:
+        raise ValueError(f"{name}: 締め日・引き落とし日は 1〜31 で書いてください")
+    if values["withdrawal_month_offset"] < 1:
+        raise ValueError(f"{name}: withdrawal_month_offset は 1 以上で書いてください")
+    return rule
 
 
 def load_api_token() -> ApiTokens:

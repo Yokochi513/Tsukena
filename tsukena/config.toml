@@ -5,3 +5,19 @@ path = "../db/tsukena.db"
 # ブラウザから API を呼んでよいオリジン。Web 版のアプリを置く GitHub Pages（→ ADR-0010）。
 # 開発中の localhost は、ポートを問わず別に許可している（tsukena/api/app.py）
 origins = ["https://yokochi513.github.io"]
+
+# 支払い手段ごとの締め日のルール（→ docs/design.md 7.1）。
+# 記録に使う支払い手段は、すべてここにルールが無ければならない
+#   timing = "immediate" … 利用日に支払う
+#   timing = "card"      … closing_day で締め、withdrawal_month_offset か月後の withdrawal_day に引き落とす（31 は月末）
+[payment_methods."現金"]
+timing = "immediate"
+
+[payment_methods."PayPay"]
+timing = "immediate"
+
+[payment_methods."JCBカード"]
+timing = "card"
+closing_day = 15
+withdrawal_day = 10
+withdrawal_month_offset = 1

@@ -1,6 +1,8 @@
+from .model.import_failure_model import ImportFailure
 from .model.record_model import RecordResult
 
 UNCATEGORIZED_LABEL = "未分類"
+NO_SUBJECT_LABEL = "（件名なし）"
 
 
 def format_cash_reply(result: RecordResult) -> str:
@@ -18,3 +20,17 @@ def format_cash_reply(result: RecordResult) -> str:
         else UNCATEGORIZED_LABEL
     )
     return f"{category} {result.transaction.amount:,}円 で記録しました"
+
+
+def format_import_failure(failure: ImportFailure) -> str:
+    """取り込めなかったメールの通知の文面を組み立てる（→ docs/design.md 4.4）。
+
+    送り主と件名を書き、アプリで確認するよう案内する。本文は載せない。
+    """
+    subject = failure.subject if failure.subject != "" else NO_SUBJECT_LABEL
+    return (
+        "📭 取り込めないメールがありました\n"
+        f"送り主: {failure.sender}\n"
+        f"件名: {subject}\n"
+        "アプリの設定から「取り込めなかったメール」を確認してください"
+    )

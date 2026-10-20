@@ -203,7 +203,7 @@ sequenceDiagram
 |              | `recorder`       | 1件の支払いの支払日を決め、分類・重複排除して保存し、その月の残りと予算の到達を返す |
 |              | `importer`       | Gmail から未処理のメールを取り出し、解析して記録する一連の取り込みを行う     |
 |              | `reporter`       | 期間を集計し、まとめを組み立てて通知に渡す                                    |
-| 外部接続     | `gmail_client`   | Gmail API との認証とメールの取得だけを行う                                    |
+| 外部接続     | `gmail_client`   | Gmail API との認証（連携の開始・完了と、認証情報の保存・更新）とメールの取得だけを行う |
 |              | `notifier`       | bot の持ち主への DM の送信だけを、Discord の HTTP の API で行う               |
 |              | `discord_bot`    | Discord のイベント（DM のメッセージ・リアクション）を受けて、REST API を呼ぶ   |
 |              | `api_client`     | bot から REST API を HTTP で呼び、JSON と `model` の構造を相互に変換する      |
@@ -266,6 +266,7 @@ flowchart TD
     API --> REC(["recorder"])
     API --> CLS(["classifier"])
     API --> REPO(["repository"])
+    API --> GC
     SCH --> IMP(["importer"])
     SCH --> RPT(["reporter"])
 
@@ -292,6 +293,7 @@ flowchart TD
 - 純粋ロジック（`normalize` / `cash_parser` / `mail_parser` / `paid_date` / `budget` / `summary`）は DB も外部サービスも呼ばない。
   入力だけから結果が決まる関数として作り、単体テストの中心にする。
 - 外部サービスを呼ぶのは `gmail_client` / `notifier` / `discord_bot` / `api_client` だけ。サービス層のテストでは `gmail_client` と `notifier` を、bot のテストでは `api_client` を差し替える。
+- `api` が `gmail_client` を呼ぶのは、Gmail 連携（`/oauth/google/start`・`/oauth/google/callback`）のときだけである。認可コードを認証情報に交換して保存する処理を `gmail_client` に置き、Google の認証のライブラリを使うモジュールを1つに限るためである。連携の途中の `state` は、`api` のプロセスのメモリに10分だけ持つ。
 - `importer` が取り込み失敗を通知するときも、`notifier` に文面を渡すだけにする（文面は `summary` が組み立てる）。
 
 ## 7. データフロー
@@ -434,7 +436,8 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | `import_failures`  | 解析できなかったメールの `message_id`・送り主・件名・理由・日時       |
 | `deleted_refs`     | 削除した記録の `source_ref`                                          |
 
-- Google の認証情報（リフレッシュトークン）は DB に入れず、サーバー上のファイルに権限を絞って保存する。
+- Google の認証情報（リフレッシュトークン）は DB に入れず、サーバー上のファイル（`creds/token.json`）に、持ち主だけが読み書きできる権限（`600`）で保存する。
+  Google Cloud で作った OAuth クライアントの情報も、同じフォルダ（`creds/credentials.json`）に置く。`creds/` は git では管理しない。
 
 ## 10. 外部インターフェース
 
@@ -454,7 +457,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 
 スマホアプリと bot が呼ぶ。見出しの「スマホアプリ向け」は、他の文書からの参照（アンカー）を保つために残している。
 
-すべて `Authorization: Bearer {トークン}` を必要とする。トークンはスマホアプリ用と bot 用の2つをサーバーの設定に持ち、エンドポイントごとにどちらで呼べるかを決める（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
+`/oauth/google/callback` を除き、すべて `Authorization: Bearer {トークン}` を必要とする。`/oauth/google/callback` は Google からのリダイレクトでブラウザが呼ぶためヘッダーを付けられず、代わりに `state` で確かめる（→ [api_list.md 2.7](./api_list.md#27-gmail-連携)）。トークンはスマホアプリ用と bot 用の2つをサーバーの設定に持ち、エンドポイントごとにどちらで呼べるかを決める（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
 現金の記録（`POST /cash-records`）は bot 用のトークンでしか呼べない。スマホアプリから支出を追加できない方針（→ [4.3](#43-スマホアプリ修正確認待ち振り返り収入)）を、API の側で守るためである。
 各エンドポイントの入力・出力・エラーは [API 一覧](./api_list.md) で定める。
 
@@ -484,7 +487,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | 利用者         | 1人。ユーザー管理・権限管理は持たない                                 |
 | Gmail の権限   | `gmail.readonly` を使う。スコープはラベル単位に絞れないため、**アプリ側で `家計簿` ラベルのメールだけを問い合わせる** |
 | 外部への公開   | API は Cloudflare Tunnel を通してだけ届かせ、`127.0.0.1` で待ち受ける（→ [ADR-0009](./adr/0009-web-app-via-cloudflare-tunnel.md)）。Web 版のアプリは GitHub Pages に置き、API は Pages のオリジンを CORS で許可する。守りはトークンだけで、アプリのトークンはビルドに入れず画面で入力する（→ [ADR-0010](./adr/0010-web-app-on-github-pages.md)）。bot から API へは同じ機械の中で呼ぶ。Discord bot と Gmail はサーバーからの外向き通信だけで動く |
-| 秘密情報       | Discord の bot のトークン、API のトークン（アプリ用・bot 用）、Google のクライアント情報は環境変数で渡し、リポジトリに入れない。Discord の bot のトークンは、bot のプロセスと API のプロセス（通知の送信）の両方が使う |
+| 秘密情報       | Discord の bot のトークンと API のトークン（アプリ用・bot 用）は環境変数で、Google のクライアント情報と認証情報は `creds/` のファイルで渡し、どれもリポジトリに入れない（→ [9](#9-データモデル)）。Discord の bot のトークンは、bot のプロセスと API のプロセス（通知の送信）の両方が使う |
 | 障害時         | 取り込みで例外が起きても、プロセスは止めず次の周期で再試行する。解析できないメールは `import_failures` に残して通知する。bot のプロセスと API のプロセスは別々に止まり、別々に再起動する |
 | 同時の書き込み | SQLite を開くのは API のプロセスだけ（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。API の中でもリクエストは複数のスレッドで動くため、WAL モードとロック待ち（`busy_timeout`）を指定し、待ちきれなかったときは書き込みの例外として扱う |
 | ログ           | 標準出力に出し、常駐の仕組み（systemd など）に集めさせる              |
@@ -500,6 +503,7 @@ Tsukena/
 │   ├── module/                … モジュール設計書（{module}_design.md）
 │   └── test/
 │       └── ut-test-design.csv … 単体テスト設計書
+├── creds/                    … Google の OAuth クライアントの情報と認証情報。git では管理しない
 ├── db/                       … SQLite の DB（tsukena.db）。git では管理しない
 ├── sql/
 │   ├── create_tables.sql      … テーブルの定義
@@ -511,7 +515,9 @@ Tsukena/
 │   │   ├── __main__.py        … bot のプロセスの起動
 │   │   ├── discord_bot.py
 │   │   └── api_client.py      … REST API の呼び出し
-│   └── mail_parser/           … 送り主ごとの解析器を置く
+│   └── mail/                  … メールの取り込みに使う部品
+│       ├── gmail_client.py
+│       └── mail_parser/       … 送り主ごとの解析器を置く
 ├── tests/
 │   └── tsukena/               … test__{module}.py
 └── app/                       … スマホアプリ（Flutter プロジェクト）

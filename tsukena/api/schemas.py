@@ -159,3 +159,7 @@ class RecordResultOut(BaseModel):
             if r.category is not None
             else None,
         )
+
+
+class GoogleAuthStartOut(BaseModel):
+    authorization_url: str

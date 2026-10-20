@@ -26,6 +26,7 @@ https://yokochi513.github.io/Tsukena/   │
 | ドメイン | Cloudflare で DNS を管理しているもの。以下では API のホスト名を `tsukena.example.com` と書く |
 | GitHub | 公開のリポジトリ（`Yokochi513/Tsukena`）。無料のプランで Pages を使う |
 | Discord の bot | Developer Portal で作った bot のトークン。自分しかいないサーバーに招待しておく（README「初期設定」） |
+| Google のアカウント | 利用通知メールが届く Gmail のアカウント。Google Cloud のプロジェクトもこのアカウントで作る（手順7） |
 
 ## 1. サーバーにコードを置く
 
@@ -59,6 +60,7 @@ sudo -u tsukena nano .env
 | `DISCORD_TOKEN` | Discord の bot のトークン |
 | `TSUKENA_APP_API_TOKEN` | アプリ用のトークン。下のコマンドで作る |
 | `TSUKENA_BOT_API_TOKEN` | bot 用のトークン。下のコマンドで、アプリ用とは別に作る |
+| `TSUKENA_GOOGLE_REDIRECT_URI` | Gmail 連携で Google が戻してくる先。手順7で埋める。空のままでも API と bot は動く |
 
 ```sh
 .venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"
@@ -127,7 +129,61 @@ sudo systemctl status cloudflared
 
 API の側では、Pages のオリジンを `tsukena/config.toml` の `[cors]` に書いておく（`https://yokochi513.github.io`）。リポジトリの持ち主が変わったときは、ここも変える。
 
-## 7. 外から確かめる
+## 7. Gmail と連携する
+
+利用通知メールを取り込むために、Google Cloud で OAuth クライアントを作り、サーバーに Gmail を読む許可を渡す。
+連携するまでの間、API は起動のたびに「Gmail との連携が切れているため、メールを取り込めません」と Discord の DM で1回知らせる。
+
+### 7.1 Google Cloud で OAuth クライアントを作る
+
+[Google Cloud のコンソール](https://console.cloud.google.com/)で、利用通知メールが届くアカウントでログインして行う。
+
+1. プロジェクトを作る（名前は `tsukena` など）。
+2. **API とサービス → ライブラリ** で **Gmail API** を有効にする。
+3. **Google Auth Platform**（OAuth 同意画面）を設定する。
+   - 対象は **外部** にする。個人の Gmail のアカウントでは、内部は選べない。
+   - データアクセス（スコープ）に `https://www.googleapis.com/auth/gmail.readonly` を追加する。
+   - 公開ステータスは **本番環境** にする。**テストのままだと、リフレッシュトークンが7日で失効し、毎週連携し直すことになる。**
+     本番にしても、Google の確認（審査）を受けていないアプリとして扱われるだけで、自分のアカウントでは使える。同意画面で「このアプリは Google で確認されていません」と出たら、「詳細」から先へ進む。
+4. **クライアント** で OAuth クライアントを作る。
+   - アプリケーションの種類は **ウェブ アプリケーション** にする。「デスクトップ アプリ」では、同意のあとに自分のサーバーへ戻ってこられない。
+   - **承認済みのリダイレクト URI** に `https://tsukena.example.com/oauth/google/callback` を登録する（ホスト名は手順5のもの）。
+5. 作ったクライアントの JSON をダウンロードする。
+
+### 7.2 サーバーに置く
+
+ダウンロードした JSON を `/opt/tsukena/creds/credentials.json` として置く。`creds/` は git では管理しない。
+
+```sh
+sudo -u tsukena mkdir -m 700 /opt/tsukena/creds
+sudo -u tsukena nano /opt/tsukena/creds/credentials.json   # JSON の中身を貼る
+sudo -u tsukena chmod 600 /opt/tsukena/creds/credentials.json
+```
+
+`.env` の `TSUKENA_GOOGLE_REDIRECT_URI` に、手順7.1で登録したのと**同じ** URL を書き、API を再起動する。1文字でも違うと、Google が `redirect_uri_mismatch` で断る。
+
+```sh
+sudo -u tsukena nano .env      # TSUKENA_GOOGLE_REDIRECT_URI=https://tsukena.example.com/oauth/google/callback
+sudo systemctl restart tsukena-api
+```
+
+### 7.3 連携する
+
+アプリにはまだ連携のボタンが無いので、連携を始める URL を API から受け取り、ブラウザで開く。
+
+```sh
+curl -s -H "Authorization: Bearer <TSUKENA_APP_API_TOKEN>" https://tsukena.example.com/oauth/google/start
+# {"authorization_url":"https://accounts.google.com/o/oauth2/auth?..."}
+```
+
+1. `authorization_url` を、10分以内にブラウザで開く。期限を過ぎたら、`curl` からやり直す。
+2. 利用通知メールが届くアカウントを選び、Gmail の読み取りを許可する。
+3. 「連携しました」と出れば、サーバーの `creds/token.json` に認証情報が保存されている。
+
+取り込みは5分ごとに動く。Gmail で、利用通知メールに `家計簿` ラベルを付けるフィルタを作っておく（README「初期設定」）。
+ラベル名を変えるときは、DB の `settings` の `gmail_label` も同じ名前にする。
+
+## 8. 外から確かめる
 
 スマホのモバイル回線（Wi-Fi を切った状態）で、次を確かめる。
 
@@ -136,6 +192,7 @@ API の側では、Pages のオリジンを `tsukena/config.toml` の `[cors]` �
 - [ ] 手順2の `TSUKENA_APP_API_TOKEN` を入れると、支出・収入の一覧が読める
 - [ ] ページを読み込み直しても、トークンを入れ直さずに一覧が出る
 - [ ] Discord で記録すると、アプリの一覧に出る
+- [ ] `家計簿` ラベルの付いた利用通知メールが届いてから5分ほどで、アプリの確認待ちの一覧に出る
 - [ ] 翌日、`/opt/tsukena/backup/` にその日のバックアップ（`tsukena-YYYY-MM-DD.db`）ができている
 
 ## 更新するとき
@@ -167,6 +224,11 @@ systemd のファイルを変えたときは、手順4のコピーと `daemon-re
 | アプリが開いてすぐ止まる（画面が真っ白） | GitHub の変数 `API_BASE_URL` が空のままビルドされた。Actions のログを見る |
 | `https://tsukena.example.com` に届かない | `systemctl status cloudflared` と、Cloudflare のダッシュボードのトンネルの状態 |
 | アプリが古いまま | ブラウザのキャッシュ（Flutter の service worker）。読み込み直すか、サイトのデータを消す（保存したトークンも消えるので入れ直す） |
+| Discord に「Gmail との連携が切れているため…」と届く | 手順7.3で連携し直す。7日ごとに届くなら、同意画面の公開ステータスがテストのままになっている（手順7.1の3） |
+| `/oauth/google/start` が `503` を返す | `.env` の `TSUKENA_GOOGLE_REDIRECT_URI` が空か、`creds/credentials.json` が無い。直したら `tsukena-api` を再起動する |
+| Google の画面に `redirect_uri_mismatch` と出る | Google Cloud に登録したリダイレクト URI と `.env` の `TSUKENA_GOOGLE_REDIRECT_URI` が食い違っている |
+| 「リンクの有効期限が切れたか、既に使われています」と出る | URL を受け取ってから10分を過ぎたか、その間に API を再起動した。`curl` からやり直す |
+| メールが取り込まれない | `journalctl -u tsukena-api`。取り込めなかったメールは Discord に通知され、アプリの「取り込めなかったメール」にも残る |
 
 ## まだ決まっていないこと
 

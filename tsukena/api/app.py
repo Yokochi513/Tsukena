@@ -1,10 +1,14 @@
+import logging
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
+from ..mail import gmail_client
+from ..mail.gmail_client import GmailAuthError
 from ..model.api_tokens import ApiTokens
 from ..model.enum.record_outcome import RecordOutcome
 from ..model.enum.status import Status
@@ -30,16 +34,20 @@ from ..services.transaction_service import (
     record_cash,
 )
 from .auth import Caller, allow
+from .oauth_state import OAuthStateStore
 from .schemas import (
     CashRecordIn,
     CategoryIn,
     CategoryOut,
+    GoogleAuthStartOut,
     IncomeIn,
     IncomeOut,
     RecordResultOut,
     TransactionOut,
     TransactionUpdateIn,
 )
+
+logger = logging.getLogger(__name__)
 
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 APP_ONLY = Depends(allow(Caller.APP))
@@ -48,11 +56,16 @@ BOT_ONLY = Depends(allow(Caller.BOT))
 
 
 def create_app(
-    db_path: Path, api_tokens: ApiTokens, cors_origins: list[str] | None = None
+    db_path: Path,
+    api_tokens: ApiTokens,
+    cors_origins: list[str] | None = None,
+    google_redirect_uri: str | None = None,
 ) -> FastAPI:
+    """google_redirect_uri が無ければ、Gmail 連携のエンドポイントは 503 を返す"""
     app = FastAPI(title="Tsukena API")
     app.state.db_path = db_path
     app.state.api_tokens = api_tokens
+    oauth_states = OAuthStateStore()
 
     # Flutter Web の開発サーバーはポートが毎回変わるため、ローカルのオリジンをポート問わず許可する
     app.add_middleware(
@@ -192,7 +205,81 @@ def create_app(
             response.status_code = 200
         return RecordResultOut.from_model(result)
 
+    @app.get(
+        "/oauth/google/start",
+        response_model=GoogleAuthStartOut,
+        dependencies=[APP_ONLY],
+    )
+    def start_google_auth():
+        if google_redirect_uri is None:
+            raise HTTPException(status_code=503, detail="Gmail link is not configured")
+        try:
+            url, state, code_verifier = gmail_client.start_authorization(
+                google_redirect_uri
+            )
+        except GmailAuthError:
+            # credentials.json が置かれていない
+            raise HTTPException(
+                status_code=503, detail="Gmail link is not configured"
+            ) from None
+        oauth_states.put(state, code_verifier)
+        return GoogleAuthStartOut(authorization_url=url)
+
+    # Google からのリダイレクトでブラウザが呼ぶため、トークンを求めず state で確かめる（→ docs/api_list.md 2.7）
+    @app.get("/oauth/google/callback", response_class=HTMLResponse)
+    def google_auth_callback(
+        state: str = "",
+        code: str | None = None,
+        error: str | None = None,
+    ):
+        code_verifier = oauth_states.pop(state)
+        if code_verifier is None:
+            return _html_page(
+                "連携できませんでした",
+                "リンクの有効期限が切れたか、既に使われています。アプリから連携をやり直してください。",
+                status_code=400,
+            )
+        if error is not None or code is None:
+            # 同意画面で「キャンセル」を選んだ
+            return _html_page(
+                "連携しませんでした", "Gmail との連携は行われませんでした。"
+            )
+        assert google_redirect_uri is not None
+        try:
+            gmail_client.finish_authorization(google_redirect_uri, code, code_verifier)
+        except GmailAuthError:
+            logger.warning("Gmail の認証情報を受け取れませんでした", exc_info=True)
+            return _html_page(
+                "連携できませんでした",
+                "Google から認証情報を受け取れませんでした。アプリから連携をやり直してください。",
+                status_code=400,
+            )
+        return _html_page(
+            "連携しました",
+            "Gmail との連携が完了しました。このページを閉じてアプリに戻ってください。",
+        )
+
     return app
+
+
+def _html_page(title: str, message: str, status_code: int = 200) -> HTMLResponse:
+    # 文言はすべてこのファイルで決めたもので、外から受け取った値は入れない
+    return HTMLResponse(
+        f"""<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} - Tsukena</title>
+</head>
+<body style="font-family: sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem;">
+<h1>{title}</h1>
+<p>{message}</p>
+</body>
+</html>
+""",
+        status_code=status_code,
+    )
 
 
 def get_conn(request: Request) -> Iterator[sqlite3.Connection]:

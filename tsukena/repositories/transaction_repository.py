@@ -95,6 +95,31 @@ def deleted_ref_exists(conn: sqlite3.Connection, source_ref: str) -> bool:
     return row is not None
 
 
+def gmail_message_recorded(conn: sqlite3.Connection, message_id: str) -> bool:
+    """メール1通から作った記録が1件でもあるか。重複排除キーは gmail:{message_id}:{連番}"""
+    prefix = _gmail_ref_prefix(message_id)
+    row = conn.execute(
+        "SELECT 1 FROM transactions WHERE substr(source_ref, 1, ?) = ?",
+        (len(prefix), prefix),
+    ).fetchone()
+    return row is not None
+
+
+def gmail_message_deleted(conn: sqlite3.Connection, message_id: str) -> bool:
+    """メール1通から作った記録を、1件でも削除したことがあるか"""
+    prefix = _gmail_ref_prefix(message_id)
+    row = conn.execute(
+        "SELECT 1 FROM deleted_refs WHERE substr(source_ref, 1, ?) = ?",
+        (len(prefix), prefix),
+    ).fetchone()
+    return row is not None
+
+
+def _gmail_ref_prefix(message_id: str) -> str:
+    # LIKE は _ と % を特別に扱い、英字の大文字・小文字も区別しないため、先頭の部分を完全一致で比べる
+    return f"{Source.GMAIL}:{message_id}:"
+
+
 def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
     # 分類ルールの学習と同じ単位で確定させたいため、commit は呼び出す側が行う
     conn.execute(

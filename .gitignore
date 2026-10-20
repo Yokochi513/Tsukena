@@ -26,3 +26,6 @@ htmlcov/
 
 # バックアップ（python -m tsukena.backup の保存先）
 /backup/
+
+# Google の OAuth クライアントの情報と認証情報（リフレッシュトークン）。docs/deploy.md 7 で置く
+/creds/
