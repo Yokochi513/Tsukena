@@ -183,3 +183,7 @@ class ImportFailureOut(BaseModel):
             reason=f.reason,
             failed_at=f.failed_at,
         )
+
+
+class ImportRetryOut(BaseModel):
+    recorded: int  # 取り込み直して新しく記録した支払いの件数

@@ -96,7 +96,7 @@ sequenceDiagram
     participant N as notifier
 
     S->>I: 5分ごとに起動
-    I->>G: ラベル付きメールの ID 一覧（直近7日）
+    I->>G: ラベル付きメールの ID 一覧（直近7日。初回は全期間）
     G-->>I: message_id の一覧
     I->>I: 取り込み済み・失敗記録済みの ID を除く
     loop 未処理のメール
@@ -117,6 +117,10 @@ sequenceDiagram
 - 取り込みは API のプロセスの定期実行で動く。通知（`notifier`）は、bot の持ち主への DM を Discord の HTTP の API で送る。
 
 - 対象は Gmail で `家計簿` ラベルが付いたメールだけ。直近7日分を毎回問い合わせ、取り込み済みの ID を除く。
+- ただし、最初の取り込みだけは期間を区切らずに問い合わせ、連携より前に届いていたメールも取り込む。済んだことは `settings` の `full_import_done` に残す。
+  途中で失敗したら印を付けず、次の周期で全期間からやり直す（取り込み済みの ID は除くので、二重には記録しない）。
+  このときは取り込めないメールを1通ごとに通知せず、終わった後に件数を1回だけ通知する。過去のメールが多いと、通知が大量に届くためである。
+- 取り込めなかったメールは、アプリから取り込み直せる。メールを ID で取り直して、その場で解析し直す（→ [api_list.md 2.6](./api_list.md#26-取り込めなかったメール)）。
   Gmail の履歴 ID を追う方式より、取りこぼしからの復帰が単純になるため。
 - 送り主（From）で解析器を選ぶ。送り主と解析器・支払い手段の対応は `mail_parser` の登録表に持つ。
 - 自動取り込みの記録は、分類ルールに当たれば確定、当たらなければ **確認待ち** になる。Discord への返事はしない（通知は週のまとめで行う）。
@@ -229,7 +233,7 @@ sequenceDiagram
 | `month_summary`  | 月の収入合計・支出合計・収支・予算の残り・カテゴリ別の内訳の取得     | `/months/{YYYY-MM}/summary`                | `MonthlySummary`、`CategoryTotal`              |
 | `category`       | カテゴリの一覧・追加と、名前・絵文字・表示順の変更                   | `/categories`、`/categories/{id}`          | `Category`、`CategoryUpdate`                   |
 | `budget`         | 月の予算の取得・変更                                                 | `/budget`                                  | `Budget`                                       |
-| `import_failure` | 取り込めなかったメールの一覧と、取り込み直し                         | `/import-failures`、`/import-failures/{message_id}` | `ImportFailure`                       |
+| `import_failure` | 取り込めなかったメールの一覧と、取り込み直し                         | `/import-failures`、`/import-failures/{message_id}/retry` | `ImportFailure`                 |
 | `gmail_link`     | Gmail 連携の開始（Google の同意画面をブラウザで開く）                | `/oauth/google/start`                      | なし                                           |
 
 - 各 feature は、`entities/`（API の JSON と相互に変換するデータの形）・`repositories/`（API の呼び出し）・`widgets/`（その機能の部品）を持つ。
@@ -431,7 +435,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | テーブル           | 内容                                                                 |
 | ------------------ | -------------------------------------------------------------------- |
 | `merchant_rules`   | `merchant_key`（主キー）→ `category_id` の分類ルール                  |
-| `settings`         | 月の予算、Gmail ラベル名。1行だけ持つ。Discord の ID は持たない（→ [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md)） |
+| `settings`         | 月の予算、Gmail ラベル名、全期間の取り込みを済ませたか。1行だけ持つ。Discord の ID は持たない（→ [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md)） |
 | `notification_log` | 送った通知の種類と対象期間（例: `budget_80` / `2026-09`）。一意制約で重複送信を防ぐ |
 | `import_failures`  | 解析できなかったメールの `message_id`・送り主・件名・理由・日時       |
 | `deleted_refs`     | 削除した記録の `source_ref`                                          |
@@ -477,6 +481,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | GET/PUT  | `/budget`                          | 月の予算の取得・変更                         |
 | GET      | `/import-failures`                 | 取り込めなかったメールの一覧                 |
 | DELETE   | `/import-failures/{message_id}`    | 失敗の記録を消し、次の取り込みで解析し直す   |
+| POST     | `/import-failures/{message_id}/retry` | 取り込めなかったメールをその場で取り込み直す |
 | POST     | `/cash-records`                    | 現金の記録（bot 用のトークンだけ。Discord のメッセージの本文・ID・送信時刻を受け取り、分解して記録する） |
 | GET      | `/oauth/google/start`              | Gmail 連携の開始（Google の同意画面へ）       |
 | GET      | `/oauth/google/callback`           | Gmail 連携の完了（認証情報を保存）           |

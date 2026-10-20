@@ -7,8 +7,8 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from ..mail import gmail_client
-from ..mail.gmail_client import GmailAuthError
+from ..mail import gmail_client, mail_parser
+from ..mail.gmail_client import GmailAuthError, GmailError
 from ..model.api_tokens import ApiTokens
 from ..model.enum.record_outcome import RecordOutcome
 from ..model.enum.status import Status
@@ -29,6 +29,7 @@ from ..repositories.income_repository import (
     update_income,
 )
 from ..repositories.transaction_repository import fetch_transactions, remove_transaction
+from ..services.importer import ImportFailureNotFoundError, retry_failed_mail
 from ..services.transaction_service import (
     CategoryNotFoundError,
     InvalidPaidDateError,
@@ -45,6 +46,7 @@ from .schemas import (
     CategoryOut,
     GoogleAuthStartOut,
     ImportFailureOut,
+    ImportRetryOut,
     IncomeIn,
     IncomeOut,
     RecordResultOut,
@@ -226,8 +228,37 @@ def create_app(
         message_id: str,
         conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
     ):
-        if not remove_import_failure(conn, message_id):
+        with conn:
+            deleted = remove_import_failure(conn, message_id)
+        if not deleted:
             raise HTTPException(status_code=404, detail="Import failure not found")
+
+    # 解析器を直した後に、取り込めなかったメールをその場で取り込み直す
+    @app.post(
+        "/import-failures/{message_id}/retry",
+        response_model=ImportRetryOut,
+        dependencies=[APP_ONLY],
+    )
+    def retry_import_failure(
+        message_id: str,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        try:
+            recorded = retry_failed_mail(conn, message_id)
+        except ImportFailureNotFoundError:
+            raise HTTPException(
+                status_code=404, detail="Import failure not found"
+            ) from None
+        except mail_parser.UnparsableMailError as error:
+            # 解析器がまだ対応していない。理由をアプリにそのまま見せる
+            raise HTTPException(status_code=422, detail=error.reason) from None
+        except GmailAuthError:
+            raise HTTPException(status_code=503, detail="Gmail is not linked") from None
+        except GmailError:
+            raise HTTPException(
+                status_code=502, detail="Could not fetch the mail from Gmail"
+            ) from None
+        return ImportRetryOut(recorded=recorded)
 
     @app.get(
         "/oauth/google/start",

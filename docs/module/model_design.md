@@ -751,6 +751,7 @@ class WeeklySummary:
 class Settings:
     monthly_budget: int
     gmail_label: str
+    full_import_done: bool
 ```
 
 - フィールド一覧
@@ -759,6 +760,7 @@ class Settings:
 | ------------------- | --- | ---- | -------------------------------------- |
 | `monthly_budget`    | int | 〇   | 月の予算（円）                         |
 | `gmail_label`       | str | 〇   | 取り込み対象の Gmail のラベル名（`家計簿` など） |
+| `full_import_done`  | bool | 〇  | 全期間の取り込みを済ませたか。済むまでは、取り込みで期間を区切らずに問い合わせる |
 
 - 不変条件
   - 1件が、サーバーの設定一式（`settings` テーブルの内容全体）を表す。設定は1組だけ存在する。

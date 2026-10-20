@@ -60,7 +60,8 @@ CREATE TABLE merchant_rules (
 CREATE TABLE settings (
     id             INTEGER PRIMARY KEY CHECK (id = 1),
     monthly_budget INTEGER NOT NULL CHECK (monthly_budget >= 1),  -- 月の予算（円）
-    gmail_label    TEXT    NOT NULL CHECK (gmail_label <> '')     -- 取り込み対象の Gmail のラベル名
+    gmail_label    TEXT    NOT NULL CHECK (gmail_label <> ''),    -- 取り込み対象の Gmail のラベル名
+    full_import_done INTEGER NOT NULL DEFAULT 0 CHECK (full_import_done IN (0, 1))  -- 全期間の取り込みを済ませたか。済むまでは期間を区切らずに問い合わせる
 );
 
 -- 送った通知。同じ種類・同じ対象期間の通知を2度送らないために使う

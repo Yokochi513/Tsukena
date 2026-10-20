@@ -28,8 +28,6 @@ def format_import_failure(failure: ImportFailure) -> str:
     送り主・件名・理由と、取り込み直す手順を書く。本文は載せない。
     """
     subject = failure.subject if failure.subject != "" else NO_SUBJECT_LABEL
-    # 7日は、取り込みが問い合わせる日数（services.importer.LOOKBACK_DAYS）。
-    # summary は純粋ロジックなのでサービス層を import せず、文面に書く
     return (
         "📭 取り込めないメールがありました\n"
         f"送り主: {failure.sender}\n"
@@ -37,5 +35,18 @@ def format_import_failure(failure: ImportFailure) -> str:
         f"理由: {failure.reason}\n"
         "このメールの形に、解析がまだ対応していない可能性があります。"
         "解析を直してから、アプリの設定の「取り込めなかったメール」で「取り込み直す」を押してください"
-        "（メールが届いてから7日以内に限ります）"
     )
+
+
+def format_full_import_result(recorded: int, failures: list[ImportFailure]) -> str:
+    """初回の全期間の取り込みが終わったときの通知の文面を組み立てる。
+
+    取り込めなかったメールが多くても通知を1通にまとめるため、1通ごとの内容は書かず件数だけを書く。
+    """
+    text = f"📬 これまでのメールの取り込みが終わりました（{recorded:,}件を記録）"
+    if failures:
+        text += (
+            f"\n取り込めなかったメールが {len(failures):,}通 あります。"
+            "アプリの設定の「取り込めなかったメール」で確認してください"
+        )
+    return text

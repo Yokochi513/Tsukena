@@ -12,4 +12,10 @@ def fetch_setting(conn: sqlite3.Connection) -> Setting:
         id=row["id"],
         monthly_budget=row["monthly_budget"],
         gmail_label=row["gmail_label"],
+        full_import_done=bool(row["full_import_done"]),
     )
+
+
+def mark_full_import_done(conn: sqlite3.Connection) -> None:
+    with conn:
+        conn.execute("UPDATE settings SET full_import_done = 1 WHERE id = 1")

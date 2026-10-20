@@ -17,3 +17,18 @@ def connect(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
     return conn
+
+
+def migrate(conn: sqlite3.Connection) -> None:
+    """既にある DB を、今のテーブルの定義（sql/create_tables.sql）に合わせる。API の起動時に呼ぶ。
+
+    足りない列だけを足す。何度呼んでも同じ結果になる。
+    """
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(settings)")}
+    if "full_import_done" not in columns:
+        # 既に動いている DB でも、次の取り込みで一度だけ全期間を問い合わせる
+        with conn:
+            conn.execute(
+                "ALTER TABLE settings ADD COLUMN full_import_done INTEGER NOT NULL"
+                " DEFAULT 0 CHECK (full_import_done IN (0, 1))"
+            )

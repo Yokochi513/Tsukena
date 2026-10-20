@@ -121,9 +121,8 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: const Text('取り込み直す'),
         content: const Text(
-          '一覧から外し、次の取り込み（5分以内）でもう一度解析します。\n'
-          '解析を直した後に押してください。直していないと、また取り込めずに一覧に戻ります。\n'
-          'メールが届いてから7日を過ぎていると、取り込み直せません。',
+          'このメールを Gmail から取り直し、もう一度解析します。\n'
+          '解析を直した後に押してください。直していないと、また取り込めずに一覧に残ります。',
         ),
         actions: [
           TextButton(
@@ -140,8 +139,12 @@ class _SettingsPageState extends State<SettingsPage> {
     if (confirmed != true) return;
 
     try {
-      await ImportFailureService().deleteImportFailure(failure.messageId);
-      _showMessage('5分以内に取り込み直します。支出の一覧で確かめてください');
+      final recorded = await ImportFailureService().retryImport(
+        failure.messageId,
+      );
+      _showMessage('$recorded件を取り込みました。支出の一覧で確かめてください');
+    } on ImportRetryFailedException catch (e) {
+      _showMessage('取り込めませんでした: ${e.reason}');
     } catch (_) {
       _showMessage('取り込み直しに失敗しました');
     }

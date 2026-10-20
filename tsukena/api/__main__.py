@@ -12,6 +12,7 @@ from ..config import (
     load_payment_rules,
 )
 from ..mail import mail_parser
+from ..repositories.database import connect, migrate
 from ..scheduler import create_scheduler
 from ..services.transaction_service import CASH_PAYMENT_METHOD
 from .app import create_app
@@ -19,6 +20,12 @@ from .app import create_app
 
 async def run() -> None:
     db_path = load_db_path()
+    # 既にある DB に、新しく足した列を足してから動かす
+    conn = connect(db_path)
+    try:
+        migrate(conn)
+    finally:
+        conn.close()
     app = create_app(
         db_path, load_api_token(), load_cors_origins(), load_google_redirect_uri()
     )

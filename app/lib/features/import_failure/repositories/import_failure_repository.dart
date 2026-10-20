@@ -25,15 +25,37 @@ class ImportFailureService {
         .toList();
   }
 
-  /// 失敗の記録を消す。そのメールは、サーバーの次の取り込み（5分以内）で解析し直される。
-  Future<void> deleteImportFailure(String messageId) async {
-    final response = await ApiHttp.delete(
-      Uri.parse('$baseUrl/import-failures/${Uri.encodeComponent(messageId)}'),
+  /// 取り込めなかったメールを、その場で取り込み直す。記録した支払いの件数を返す。
+  ///
+  /// まだ解析できないときは [ImportRetryFailedException] を投げる（理由を持つ）。
+  Future<int> retryImport(String messageId) async {
+    final response = await ApiHttp.post(
+      Uri.parse(
+        '$baseUrl/import-failures/${Uri.encodeComponent(messageId)}/retry',
+      ),
     );
 
-    // 404 は、既に消えている（別の端末で押した）ので、取り込み直しは始まっている
-    if (response.statusCode != 204 && response.statusCode != 404) {
-      throw Exception('取り込み直しに失敗しました');
+    switch (response.statusCode) {
+      case 200:
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return json['recorded'] as int;
+      case 422:
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        throw ImportRetryFailedException(json['detail'] as String);
+      case 404:
+        // 別の端末で取り込み直し済み
+        throw ImportRetryFailedException('既に取り込み直されています');
+      case 503:
+        throw ImportRetryFailedException('Gmail と連携していません');
+      default:
+        throw Exception('取り込み直しに失敗しました');
     }
   }
+}
+
+/// 取り込み直したが、記録できなかった。[reason] はそのまま画面に出す。
+class ImportRetryFailedException implements Exception {
+  ImportRetryFailedException(this.reason);
+
+  final String reason;
 }

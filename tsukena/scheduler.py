@@ -71,7 +71,7 @@ async def run_import(db_path: Path) -> None:
 def _import_once(db_path: Path) -> None:
     conn = connect(db_path)
     try:
-        import_mails(conn, fetch_setting(conn).gmail_label)
+        import_mails(conn, fetch_setting(conn))
     finally:
         conn.close()
 
