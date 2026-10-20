@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>プライバシー ポリシー - Tsukena</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --text: #1f2a2c;
+      --muted: #5b6a6d;
+      --bg: #ffffff;
+      --accent: #0C4950;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #e4ecec;
+        --muted: #a3b3b5;
+        --bg: #121a1b;
+        --accent: #7fc4cb;
+      }
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      line-height: 1.8;
+    }
+    main {
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 2rem 1rem 4rem;
+    }
+    h1 { font-size: 1.6rem; color: var(--accent); margin-bottom: 0.25rem; }
+    h2 { font-size: 1.15rem; margin-top: 2rem; }
+    .meta { color: var(--muted); font-size: 0.9rem; }
+    a { color: var(--accent); }
+    li { margin: 0.25rem 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>プライバシー ポリシー</h1>
+  <p class="meta">Tsukena（家計簿アプリ）／ 制定日: 2026年10月21日</p>
+
+  <p>
+    Tsukena は、開発者が自分の家計を記録するために個人で作り、自宅のサーバーで動かしている家計簿のアプリです。
+    利用者は開発者本人だけであり、ほかの人へのサービスとしては提供していません。
+    このページでは、Google アカウント（Gmail）と連携したときに、どの情報をどのように扱うかを説明します。
+  </p>
+
+  <h2>1. Gmail から読み取る情報</h2>
+  <p>
+    Gmail の読み取り専用の権限（<code>https://www.googleapis.com/auth/gmail.readonly</code>）を使います。
+    Google の権限はラベルの単位に絞れないため、アプリの側で、<strong>利用者が指定したラベル（例: 「家計簿」）が付いたメールだけ</strong>を問い合わせます。
+    それ以外のメールは読みません。メールの送信・変更・削除はしません。
+  </p>
+  <p>読み取ったメールからは、次の情報だけを取り出します。</p>
+  <ul>
+    <li>カードや決済サービスの利用日・金額・利用先（店名）</li>
+    <li>メールの送り主と件名（支払い手段の判定と、取り込めなかったメールの表示に使う）</li>
+    <li>メールの ID（同じメールを二重に記録しないために使う）</li>
+  </ul>
+  <p>メールの本文そのものは保存しません。</p>
+
+  <h2>2. 情報の使い道</h2>
+  <p>
+    取り出した情報は、家計簿の支出として記録し、利用者本人がアプリで確認・修正し、週や月の集計を見るためだけに使います。
+    広告、分析のための外部への提供、機械学習の学習には使いません。
+  </p>
+
+  <h2>3. 保存する場所</h2>
+  <ul>
+    <li>記録は、開発者の自宅のサーバーにあるデータベースにだけ保存します。</li>
+    <li>Google から受け取った認証情報（リフレッシュトークン）は、同じサーバーの、サーバーの管理者だけが読めるファイルに保存します。</li>
+    <li>アプリとサーバーの間の通信は HTTPS で暗号化します。</li>
+  </ul>
+
+  <h2>4. 第三者への提供</h2>
+  <p>
+    Gmail から得た情報を、第三者に販売・提供・共有することはありません。
+    記録を取り込めなかったときなどの通知は、利用者本人の Discord にだけ送ります。通知には送り主と件名を含めますが、本文は含めません。
+  </p>
+
+  <h2>5. Google API サービスのユーザーデータに関するポリシーへの準拠</h2>
+  <p>
+    Tsukena による Google API から受け取った情報の使用と、ほかのアプリへの転送は、
+    <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>
+    （Limited Use の要件を含む）に従います。
+  </p>
+
+  <h2>6. 連携の解除と情報の削除</h2>
+  <ul>
+    <li>
+      Gmail との連携は、Google アカウントの
+      <a href="https://myaccount.google.com/connections">サードパーティ製のアプリとサービス</a>
+      からいつでも解除できます。解除すると、Tsukena はそれ以降メールを読めなくなります。
+    </li>
+    <li>記録した支出は、アプリからいつでも削除できます。</li>
+  </ul>
+
+  <h2>7. このポリシーの変更</h2>
+  <p>扱う情報や使い道を変えるときは、このページを更新し、制定日の下に改定日を書きます。</p>
+
+  <h2>8. 問い合わせ先</h2>
+  <p>
+    <a href="https://github.com/Yokochi513/Tsukena/issues">GitHub のリポジトリの Issues</a> から連絡してください。
+  </p>
+</main>
+</body>
+</html>

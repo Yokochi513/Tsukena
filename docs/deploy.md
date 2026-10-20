@@ -142,13 +142,23 @@ API の側では、Pages のオリジンを `tsukena/config.toml` の `[cors]` �
 2. **API とサービス → ライブラリ** で **Gmail API** を有効にする。
 3. **Google Auth Platform**（OAuth 同意画面）を設定する。
    - 対象は **外部** にする。個人の Gmail のアカウントでは、内部は選べない。
+   - **ブランディング** に次を入れる。本番環境に切り替えるには、ホームページとプライバシー ポリシーの URL が要る。
+
+     | 項目 | 値 |
+     | --- | --- |
+     | アプリ名 | `Tsukena` |
+     | ユーザー サポートメール | 自分の Gmail |
+     | アプリのホームページ | `https://yokochi513.github.io/Tsukena/` |
+     | プライバシー ポリシー | `https://yokochi513.github.io/Tsukena/privacy.html`（`app/web/privacy.html`。手順6で Pages に載る） |
+     | 承認済みドメイン | `yokochi513.github.io` と、API のドメイン（`example.com`。リダイレクト URI のドメイン） |
+
    - データアクセス（スコープ）に `https://www.googleapis.com/auth/gmail.readonly` を追加する。
-   - 公開ステータスは **本番環境** にする。**テストのままだと、リフレッシュトークンが7日で失効し、毎週連携し直すことになる。**
+   - **対象** の公開ステータスを **本番環境** にする（「アプリを公開」）。**テストのままだと、リフレッシュトークンが7日で失効し、毎週連携し直すことになる。**
      本番にしても、Google の確認（審査）を受けていないアプリとして扱われるだけで、自分のアカウントでは使える。同意画面で「このアプリは Google で確認されていません」と出たら、「詳細」から先へ進む。
 4. **クライアント** で OAuth クライアントを作る。
    - アプリケーションの種類は **ウェブ アプリケーション** にする。「デスクトップ アプリ」では、同意のあとに自分のサーバーへ戻ってこられない。
    - **承認済みのリダイレクト URI** に `https://tsukena.example.com/oauth/google/callback` を登録する（ホスト名は手順5のもの）。
-5. 作ったクライアントの JSON をダウンロードする。
+5. 作ったクライアントの JSON をダウンロードする。クライアント シークレットは作った直後の画面でしか取り出せないことがあるので、その場でダウンロードする。
 
 ### 7.2 サーバーに置く
 
@@ -182,8 +192,9 @@ curl -s -H "Authorization: Bearer <TSUKENA_APP_API_TOKEN>" https://tsukena.examp
 # {"authorization_url":"https://accounts.google.com/o/oauth2/auth?..."}
 ```
 
-取り込みは5分ごとに動く。Gmail で、利用通知メールに `家計簿` ラベルを付けるフィルタを作っておく（README「初期設定」）。
-ラベル名を変えるときは、DB の `settings` の `gmail_label` も同じ名前にする。
+取り込みは5分ごとに動き、直近7日分のメールを見る。Gmail で、利用通知メールにラベルを付けるフィルタを作っておく（README「初期設定」）。
+ラベル名は、DB の `settings` の `gmail_label`（初期値は `Tsukena`）と同じにする。違う名前にしたときは「更新するとき」の手順で DB を直す。
+フィルタは、作った後に届いたメールにしか付かない。既に届いているメールにも付けるには、作るときに「一致するスレッドにもフィルタを適用する」を選ぶ。
 
 ## 8. 外から確かめる
 
@@ -200,22 +211,70 @@ curl -s -H "Authorization: Bearer <TSUKENA_APP_API_TOKEN>" https://tsukena.examp
 
 ## 更新するとき
 
-サーバーのコード（API・bot）を変えたとき:
+### 何を変えたら、何をし直すか
+
+API と bot は、設定の多くを**起動したときに一度だけ**読む。そのため、それらを変えたら再起動しないと反映されない。
+一方、取り込みのたびに読み直すものは、再起動しなくても次の取り込み（5分以内）から反映される。
+
+| 変えたもの | すること | 理由 |
+| --- | --- | --- |
+| サーバーのコード（`tsukena/` の `.py`） | `git pull` → `uv sync --frozen` → **API と bot を再起動** | Python は起動したときにコードを読み込む。`tsukena/bot/` 以外の変更でも、`model` や `summary` は bot も使うので、両方を再起動するほうが確実 |
+| 依存（`pyproject.toml`・`uv.lock`） | `uv sync --frozen` → **API と bot を再起動** | 新しいライブラリは、入れた後に起動したプロセスからしか使えない |
+| `.env`（トークン・`DISCORD_TOKEN`・`TSUKENA_GOOGLE_REDIRECT_URI`） | **API と bot を再起動** | 起動したときに読む。`DISCORD_TOKEN` は bot と API（通知）の両方が使う |
+| `tsukena/config.toml` の `[cors]` | **API を再起動** | 起動したときに読む |
+| `tsukena/config.toml` の `[payment_methods]`（締め日のルール） | **API を再起動** | ルールは記録のたびに読み直すが、ルールの足りない支払い手段が無いかの照合は起動したときにしか行わない |
+| 解析器の登録表（`tsukena/mail/mail_parser/`） | **API を再起動** | コードなので起動したときに読む。起動したときに、締め日のルールが揃っているかも照合する |
+| `creds/credentials.json`・`creds/token.json` | なし | 連携を始めるとき・取り込みのたびに読み直す |
+| DB の `settings` の `gmail_label`（ラベル名） | なし | 取り込みのたびに読み直す |
+| systemd のファイル（`deploy/systemd/`） | 手順4のコピー → `sudo systemctl daemon-reload` → 対象を再起動 | systemd は、読み込み直すまで古いファイルの内容で動かす |
+| Cloudflare Tunnel の設定（`/etc/cloudflared/config.yml`） | `sudo systemctl restart cloudflared` | 起動したときに読む |
+| バックアップ（`tsukena/backup.py`） | なし | タイマーが毎回新しく起動する |
+| アプリ（`app/`） | `master` に push する | GitHub Actions が作り直して Pages に置く。端末ではページを読み込み直す |
+| GitHub の変数 `API_BASE_URL` | Actions で **Deploy web app to Pages** を手で動かす | 変数を変えただけではビルドは動かない |
+| テーブルの定義（`sql/create_tables.sql`） | 本番の DB を手で変える | 既にある DB には反映されない。DB を作り直すと記録が消えるので、`ALTER TABLE` などで直す |
+| 初期値（`sql/sample/02_settings.sql` など） | なし（既にある DB は手で `UPDATE` する） | `init_db` で新しく DB を作るときにしか使わない |
+| Google Cloud のリダイレクト URI | `.env` の `TSUKENA_GOOGLE_REDIRECT_URI` を同じ値にして、API を再起動 | 2つが食い違うと、連携が `redirect_uri_mismatch` で断られる |
+
+### 再起動のしかた
 
 ```sh
 cd /opt/tsukena
 sudo -u tsukena git pull
 sudo -u tsukena /home/tsukena/.local/bin/uv sync --frozen
-sudo systemctl restart tsukena-api tsukena-bot
+sudo systemctl restart tsukena-api tsukena-bot     # API だけなら tsukena-api だけでよい
 ```
 
-systemd のファイルを変えたときは、手順4のコピーと `daemon-reload` をし直す。
-アプリ（`app/`）を変えたときは、`master` に push すれば GitHub Actions が Pages に置き直す。
+再起動した後は、動いているかを確かめる。
 
-トークンを作り直したとき:
+```sh
+systemctl status tsukena-api tsukena-bot
+journalctl -u tsukena-api -n 30 --no-pager   # 起動時の照合で止まっていないか（「支払い手段のルールがありません」など）
+journalctl -u tsukena-bot -n 20 --no-pager   # 「Discordに接続しました」が出ていればよい
+```
+
+API を再起動すると、Gmail 連携の途中の `state` は消える。同意画面を開いている途中なら、アプリから連携をやり直す。
+
+### トークンを作り直したとき
 
 1. サーバーの `.env` を書き換え、`sudo systemctl restart tsukena-api tsukena-bot` で再起動する。
 2. 各端末でアプリを開くと 401 で入力画面に戻るので、新しいトークンを入れる。
+
+### Gmail のラベル名を変えたとき
+
+DB の `settings` の `gmail_label` を、Gmail のラベル名と同じにする。再起動は要らない。
+
+```sh
+cd /opt/tsukena
+sudo -u tsukena .venv/bin/python - <<'EOF'
+from tsukena.config import load_db_path
+from tsukena.repositories.database import connect
+
+conn = connect(load_db_path())
+with conn:
+    conn.execute("UPDATE settings SET gmail_label = ? WHERE id = 1", ("Tsukena",))
+print("gmail_label:", conn.execute("SELECT gmail_label FROM settings").fetchone()[0])
+EOF
+```
 
 ## うまく動かないとき
 
