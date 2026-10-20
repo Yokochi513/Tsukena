@@ -24,4 +24,16 @@ class ImportFailureService {
         .map((item) => ImportFailure.fromJson(item as Map<String, dynamic>))
         .toList();
   }
+
+  /// 失敗の記録を消す。そのメールは、サーバーの次の取り込み（5分以内）で解析し直される。
+  Future<void> deleteImportFailure(String messageId) async {
+    final response = await ApiHttp.delete(
+      Uri.parse('$baseUrl/import-failures/${Uri.encodeComponent(messageId)}'),
+    );
+
+    // 404 は、既に消えている（別の端末で押した）ので、取り込み直しは始まっている
+    if (response.statusCode != 204 && response.statusCode != 404) {
+      throw Exception('取り込み直しに失敗しました');
+    }
+  }
 }

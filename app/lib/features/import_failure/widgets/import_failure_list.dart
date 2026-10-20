@@ -3,9 +3,12 @@ import 'package:tsukena/features/import_failure/entities/import_failure.dart';
 
 /// 取り込めなかったメールの一覧。設定の画面の中に置くため、自分ではスクロールしない。
 class ImportFailureList extends StatelessWidget {
-  const ImportFailureList({super.key, required this.failures});
+  const ImportFailureList({super.key, required this.failures, this.onRetry});
 
   final List<ImportFailure> failures;
+
+  /// 「取り込み直す」を押したときに呼ぶ。null ならボタンを出さない
+  final ValueChanged<ImportFailure>? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +33,15 @@ class ImportFailureList extends StatelessWidget {
                     color: Theme.of(context).colorScheme.error,
                   ),
                 ),
+                if (onRetry != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => onRetry!(failure),
+                      icon: const Icon(Icons.replay),
+                      label: const Text('取り込み直す'),
+                    ),
+                  ),
               ],
             ),
             isThreeLine: true,

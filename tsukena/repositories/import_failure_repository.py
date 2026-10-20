@@ -35,6 +35,15 @@ def fetch_import_failures(conn: sqlite3.Connection) -> list[ImportFailure]:
     return [_row_to_import_failure(r) for r in rows]
 
 
+def remove_import_failure(conn: sqlite3.Connection, message_id: str) -> bool:
+    """失敗の記録を消す。消したメールは、次の取り込みで解析し直される（→ docs/api_list.md 2.6）"""
+    with conn:
+        cur = conn.execute(
+            "DELETE FROM import_failures WHERE message_id = ?", (message_id,)
+        )
+    return cur.rowcount > 0
+
+
 def _row_to_import_failure(row: sqlite3.Row) -> ImportFailure:
     return ImportFailure(
         message_id=row["message_id"],

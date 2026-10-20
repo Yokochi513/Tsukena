@@ -177,7 +177,7 @@ sequenceDiagram
 | 週のまとめ       | 毎週日曜 21:00                         | 月曜〜日曜に**使った**分の支出合計、カテゴリ別の上位3つ、今月の予算の残り、確認待ちの件数 |
 | 月のまとめ       | 毎月1日 9:00（前月分）                 | 前月の収入合計と収支、前月に**支払った**分の支出合計と予算、前々月との差、カテゴリ別の内訳 |
 | 予算の到達       | 記録した直後（随時）                   | ある月の支出が予算の80% / 100% を超えたとき、対象の月と残りの金額 |
-| 取り込めないメール | 自動取り込みで解析に失敗したとき     | 送り主と件名。アプリで確認するよう案内する                   |
+| 取り込めないメール | 自動取り込みで解析に失敗したとき     | 送り主・件名・理由。解析を直してから、アプリで取り込み直すよう案内する |
 
 - 通知はすべて bot の持ち主への DM で送る（→ [ADR-0008](./adr/0008-record-and-notify-via-owner-dm.md)）。現金の記録で予算の閾値を超えたときは bot が返事の後に送り、それ以外は API のプロセスの通知（`notifier`）が送る。
 - README の「月末に届く」は、月末日の深夜の支払いと遅れて届く利用通知メールを取りこぼさないよう、**翌月1日の朝**に送る形にしている（→ 残課題 R-3）。
@@ -229,7 +229,7 @@ sequenceDiagram
 | `month_summary`  | 月の収入合計・支出合計・収支・予算の残り・カテゴリ別の内訳の取得     | `/months/{YYYY-MM}/summary`                | `MonthlySummary`、`CategoryTotal`              |
 | `category`       | カテゴリの一覧・追加と、名前・絵文字・表示順の変更                   | `/categories`、`/categories/{id}`          | `Category`、`CategoryUpdate`                   |
 | `budget`         | 月の予算の取得・変更                                                 | `/budget`                                  | `Budget`                                       |
-| `import_failure` | 取り込めなかったメールの一覧                                         | `/import-failures`                         | `ImportFailure`                                |
+| `import_failure` | 取り込めなかったメールの一覧と、取り込み直し                         | `/import-failures`、`/import-failures/{message_id}` | `ImportFailure`                       |
 | `gmail_link`     | Gmail 連携の開始（Google の同意画面をブラウザで開く）                | `/oauth/google/start`                      | なし                                           |
 
 - 各 feature は、`entities/`（API の JSON と相互に変換するデータの形）・`repositories/`（API の呼び出し）・`widgets/`（その機能の部品）を持つ。
@@ -476,6 +476,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | PATCH    | `/categories/{id}`                 | 名前・絵文字・表示順の変更                   |
 | GET/PUT  | `/budget`                          | 月の予算の取得・変更                         |
 | GET      | `/import-failures`                 | 取り込めなかったメールの一覧                 |
+| DELETE   | `/import-failures/{message_id}`    | 失敗の記録を消し、次の取り込みで解析し直す   |
 | POST     | `/cash-records`                    | 現金の記録（bot 用のトークンだけ。Discord のメッセージの本文・ID・送信時刻を受け取り、分解して記録する） |
 | GET      | `/oauth/google/start`              | Gmail 連携の開始（Google の同意画面へ）       |
 | GET      | `/oauth/google/callback`           | Gmail 連携の完了（認証情報を保存）           |

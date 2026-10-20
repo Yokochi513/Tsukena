@@ -78,7 +78,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (snapshot.hasError) {
                     return const ListTile(title: Text('取り込めなかったメールの取得に失敗しました'));
                   }
-                  return ImportFailureList(failures: snapshot.data ?? []);
+                  return ImportFailureList(
+                    failures: snapshot.data ?? [],
+                    onRetry: _retryImport,
+                  );
                 },
               ),
             ],
@@ -110,6 +113,39 @@ class _SettingsPageState extends State<SettingsPage> {
     } finally {
       if (mounted) setState(() => _linking = false);
     }
+  }
+
+  Future<void> _retryImport(ImportFailure failure) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('取り込み直す'),
+        content: const Text(
+          '一覧から外し、次の取り込み（5分以内）でもう一度解析します。\n'
+          '解析を直した後に押してください。直していないと、また取り込めずに一覧に戻ります。\n'
+          'メールが届いてから7日を過ぎていると、取り込み直せません。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('やめる'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('取り込み直す'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ImportFailureService().deleteImportFailure(failure.messageId);
+      _showMessage('5分以内に取り込み直します。支出の一覧で確かめてください');
+    } catch (_) {
+      _showMessage('取り込み直しに失敗しました');
+    }
+    _reload();
   }
 
   void _showMessage(String message) {

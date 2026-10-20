@@ -292,7 +292,38 @@ EOF
 | 「リンクの有効期限が切れたか、既に使われています」と出る | 同意画面を開いてから10分を過ぎたか、その間に API を再起動した。アプリの **Gmail と連携する** からやり直す |
 | アプリで「サーバーで Gmail 連携の準備ができていません」と出る | `/oauth/google/start` の `503` と同じ。`.env` の `TSUKENA_GOOGLE_REDIRECT_URI` と `creds/credentials.json` を確かめる |
 | 設定タブで「取り込めなかったメールの取得に失敗しました」と出る | サーバーが古い。「更新するとき」の手順で `git pull` して再起動する |
-| メールが取り込まれない | `journalctl -u tsukena-api`。取り込めなかったメールは Discord に通知され、アプリの「取り込めなかったメール」にも残る |
+| メールが取り込まれない | ラベル名が DB の `gmail_label` と同じか（「更新するとき」）。メールが7日より前でないか。`journalctl -u tsukena-api` |
+| 「取り込めないメールがありました」と届く | 下の「取り込めないメールが届いたとき」 |
+
+### 取り込めないメールが届いたとき
+
+Discord に「📭 取り込めないメールがありました」と届いたら、そのメールの形に解析器がまだ対応していない。
+解析器を直してから取り込み直す。メールが届いてから7日を過ぎると取り込み直せないので、早めに行う。
+
+1. 通知の「理由」を見る。「登録されていない送り主です」なら、新しいカード会社のメールなので、解析器を足す。それ以外なら、既にある解析器が知らない書き方のメールである。
+2. サーバーで、取り込めなかったメールの本文を出す（新しい順に3通）。
+
+   ```sh
+   cd /opt/tsukena
+   sudo -u tsukena .venv/bin/python - <<'PY'
+   from tsukena.config import load_db_path
+   from tsukena.mail import gmail_client as g
+   from tsukena.repositories.database import connect
+
+   conn = connect(load_db_path())
+   for message_id, subject, reason in conn.execute(
+       "SELECT message_id, subject, reason FROM import_failures ORDER BY failed_at DESC LIMIT 3"
+   ):
+       m = g.get_message(message_id)
+       print("=" * 40, message_id, subject, "理由:", reason, sep="
+")
+       print(m.body[:1500])
+   PY
+   ```
+
+3. 本文を見本にして解析器（`tsukena/mail/mail_parser/`）を直し、テストに見本を足す。見本の氏名やカード番号は伏せる（リポジトリは公開している）。
+4. 「更新するとき」の手順で、サーバーに反映して API を再起動する。
+5. アプリの設定の「取り込めなかったメール」で、そのメールの **取り込み直す** を押す。5分以内に取り込まれ、支出の一覧に確認待ちとして出る。
 
 ## まだ決まっていないこと
 

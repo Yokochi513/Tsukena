@@ -18,7 +18,10 @@ from ..repositories.category_repository import (
     update_category,
 )
 from ..repositories.database import connect
-from ..repositories.import_failure_repository import fetch_import_failures
+from ..repositories.import_failure_repository import (
+    fetch_import_failures,
+    remove_import_failure,
+)
 from ..repositories.income_repository import (
     fetch_incomes,
     insert_income,
@@ -214,6 +217,17 @@ def create_app(
     )
     def get_import_failures(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
         return [ImportFailureOut.from_model(f) for f in fetch_import_failures(conn)]
+
+    # 失敗の記録を消すと、そのメールは次の取り込みで解析し直される（解析器を直した後の取り込み直し）
+    @app.delete(
+        "/import-failures/{message_id}", status_code=204, dependencies=[APP_ONLY]
+    )
+    def delete_import_failure(
+        message_id: str,
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        if not remove_import_failure(conn, message_id):
+            raise HTTPException(status_code=404, detail="Import failure not found")
 
     @app.get(
         "/oauth/google/start",

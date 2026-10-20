@@ -25,12 +25,17 @@ def format_cash_reply(result: RecordResult) -> str:
 def format_import_failure(failure: ImportFailure) -> str:
     """取り込めなかったメールの通知の文面を組み立てる（→ docs/design.md 4.4）。
 
-    送り主と件名を書き、アプリで確認するよう案内する。本文は載せない。
+    送り主・件名・理由と、取り込み直す手順を書く。本文は載せない。
     """
     subject = failure.subject if failure.subject != "" else NO_SUBJECT_LABEL
+    # 7日は、取り込みが問い合わせる日数（services.importer.LOOKBACK_DAYS）。
+    # summary は純粋ロジックなのでサービス層を import せず、文面に書く
     return (
         "📭 取り込めないメールがありました\n"
         f"送り主: {failure.sender}\n"
         f"件名: {subject}\n"
-        "アプリの設定から「取り込めなかったメール」を確認してください"
+        f"理由: {failure.reason}\n"
+        "このメールの形に、解析がまだ対応していない可能性があります。"
+        "解析を直してから、アプリの設定の「取り込めなかったメール」で「取り込み直す」を押してください"
+        "（メールが届いてから7日以内に限ります）"
     )
