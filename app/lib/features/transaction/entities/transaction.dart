@@ -23,6 +23,7 @@ class Transaction {
   DateTime paidDate;
   int amount;
   String merchant;
+  String memo;
   int? categoryId;
   TransactionStatus status;
   String paymentMethod;
@@ -37,6 +38,7 @@ class Transaction {
     required this.paidDate,
     required this.amount,
     this.merchant = '',
+    this.memo = '',
     this.categoryId,
     required this.status,
     required this.paymentMethod,
@@ -53,6 +55,7 @@ class Transaction {
       paidDate: DateTime.parse(json['paid_date'] as String),
       amount: json['amount'] as int,
       merchant: json['merchant'] as String,
+      memo: json['memo'] as String,
       categoryId: json['category_id'] as int?,
       status: TransactionStatus.fromJson(json['status'] as String),
       paymentMethod: json['payment_method'] as String,

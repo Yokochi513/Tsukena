@@ -45,6 +45,7 @@ def modify_transaction(
 
     - category_id を送ると確定にし、照合キーの分類ルールを作成または上書きする（照合キーが空なら作らない）
     - merchant を送ると照合キーを作り直す。カテゴリと状態は変えない
+    - memo は分類に使わないため、送っても照合キー・カテゴリ・状態は変えない
     - occurred_date だけを送ったときの支払日の計算し直しは、支払い手段のルールがまだ無いため行わない
     """
     current = fetch_transaction(conn, transaction_id)
@@ -73,6 +74,7 @@ def modify_transaction(
         amount=update.amount if update.amount is not None else current.amount,
         merchant=merchant,
         merchant_key=merchant_key,
+        memo=update.memo if update.memo is not None else current.memo,
         category_id=update.category_id
         if update.category_id is not None
         else current.category_id,

@@ -20,6 +20,7 @@ class TransactionOut(BaseModel):
     paid_date: datetime.date
     amount: int
     merchant: str
+    memo: str
     category_id: int | None
     status: Status
     payment_method: str
@@ -41,6 +42,7 @@ class TransactionOut(BaseModel):
             paid_date=t.paid_date,
             amount=t.amount,
             merchant=t.merchant,
+            memo=t.memo,
             category_id=t.category_id,
             status=t.status,
             payment_method=t.payment_method,
@@ -116,6 +118,7 @@ class TransactionUpdateIn(BaseModel):
     paid_date: datetime.date | None = None
     amount: int | None = Field(None, ge=1)
     merchant: str | None = None
+    memo: str | None = None
     category_id: int | None = None
 
     @field_validator("category_id")
@@ -132,6 +135,7 @@ class TransactionUpdateIn(BaseModel):
             paid_date=self.paid_date,
             amount=self.amount,
             merchant=self.merchant,
+            memo=self.memo,
             category_id=self.category_id,
         )
 

@@ -24,7 +24,7 @@ def migrate(conn: sqlite3.Connection) -> None:
 
     足りない列だけを足す。何度呼んでも同じ結果になる。
     """
-    columns = {row["name"] for row in conn.execute("PRAGMA table_info(settings)")}
+    columns = _columns(conn, "settings")
     if "full_import_done" not in columns:
         # 既に動いている DB でも、次の取り込みで一度だけ全期間を問い合わせる
         with conn:
@@ -32,3 +32,12 @@ def migrate(conn: sqlite3.Connection) -> None:
                 "ALTER TABLE settings ADD COLUMN full_import_done INTEGER NOT NULL"
                 " DEFAULT 0 CHECK (full_import_done IN (0, 1))"
             )
+    if "memo" not in _columns(conn, "transactions"):
+        with conn:
+            conn.execute(
+                "ALTER TABLE transactions ADD COLUMN memo TEXT NOT NULL DEFAULT ''"
+            )
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}

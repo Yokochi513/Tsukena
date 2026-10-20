@@ -232,7 +232,7 @@ API と bot は、設定の多くを**起動したときに一度だけ**読む�
 | バックアップ（`tsukena/backup.py`） | なし | タイマーが毎回新しく起動する |
 | アプリ（`app/`） | `master` に push する | GitHub Actions が作り直して Pages に置く。端末ではページを読み込み直す |
 | GitHub の変数 `API_BASE_URL` | Actions で **Deploy web app to Pages** を手で動かす | 変数を変えただけではビルドは動かない |
-| テーブルの定義（`sql/create_tables.sql`） | 本番の DB を手で変える（API が起動時に足す列は除く） | 既にある DB には反映されない。DB を作り直すと記録が消えるので、`ALTER TABLE` などで直す。`settings` の `full_import_done` は、API が起動したときに無ければ足す（`tsukena/repositories/database.py` の `migrate`） |
+| テーブルの定義（`sql/create_tables.sql`） | 本番の DB を手で変える（API が起動時に足す列は除く） | 既にある DB には反映されない。DB を作り直すと記録が消えるので、`ALTER TABLE` などで直す。`settings` の `full_import_done` と `transactions` の `memo` は、API が起動したときに無ければ足す（`tsukena/repositories/database.py` の `migrate`） |
 | 初期値（`sql/sample/02_settings.sql` など） | なし（既にある DB は手で `UPDATE` する） | `init_db` で新しく DB を作るときにしか使わない |
 | Google Cloud のリダイレクト URI | `.env` の `TSUKENA_GOOGLE_REDIRECT_URI` を同じ値にして、API を再起動 | 2つが食い違うと、連携が `redirect_uri_mismatch` で断られる |
 

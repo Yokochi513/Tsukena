@@ -19,6 +19,7 @@ CREATE TABLE transactions (
     amount         INTEGER NOT NULL CHECK (amount >= 1),                               -- 円、正の整数
     merchant       TEXT    NOT NULL DEFAULT '',                                        -- 店名・メモ（生の文字列）。無ければ空文字
     merchant_key   TEXT    NOT NULL DEFAULT '',                                        -- 正規化した店名・メモ。無ければ空文字
+    memo           TEXT    NOT NULL DEFAULT '',                                        -- 買った物などの覚え書き（アプリで書く）。無ければ空文字
     category_id    INTEGER          REFERENCES categories (id),                        -- 未設定なら NULL
     status         TEXT    NOT NULL CHECK (status IN ('confirmed', 'pending')),
     payment_method TEXT    NOT NULL CHECK (payment_method <> ''),                      -- 現金、楽天カード など

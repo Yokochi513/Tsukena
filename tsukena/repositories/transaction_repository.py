@@ -58,9 +58,9 @@ def insert_transaction(
         """
         INSERT INTO transactions (
             occurred_date, occurred_time, paid_date, amount, merchant, merchant_key,
-            category_id, status, payment_method, source, source_ref,
+            memo, category_id, status, payment_method, source, source_ref,
             created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             t.occurred_date.isoformat(),
@@ -69,6 +69,7 @@ def insert_transaction(
             t.amount,
             t.merchant,
             t.merchant_key,
+            t.memo,
             t.category_id,
             t.status.value,
             t.payment_method,
@@ -126,7 +127,7 @@ def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
         """
         UPDATE transactions
         SET occurred_date = ?, paid_date = ?, amount = ?, merchant = ?,
-            merchant_key = ?, category_id = ?, status = ?, updated_at = ?
+            merchant_key = ?, memo = ?, category_id = ?, status = ?, updated_at = ?
         WHERE id = ?
         """,
         (
@@ -135,6 +136,7 @@ def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
             t.amount,
             t.merchant,
             t.merchant_key,
+            t.memo,
             t.category_id,
             t.status.value,
             t.updated_at.isoformat(),
@@ -167,6 +169,7 @@ def _row_to_transaction(row: sqlite3.Row) -> Transaction:
         amount=row["amount"],
         merchant=row["merchant"],
         merchant_key=row["merchant_key"],
+        memo=row["memo"],
         category_id=row["category_id"],
         status=Status(row["status"]),
         payment_method=row["payment_method"],

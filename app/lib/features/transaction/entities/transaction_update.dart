@@ -4,6 +4,7 @@ class TransactionUpdate {
   DateTime? paidDate;
   int? amount;
   String? merchant;
+  String? memo;
   int? categoryId;
 
   TransactionUpdate({
@@ -11,6 +12,7 @@ class TransactionUpdate {
     this.paidDate,
     this.amount,
     this.merchant,
+    this.memo,
     this.categoryId,
   });
 
@@ -19,6 +21,7 @@ class TransactionUpdate {
     'paid_date': ?_formatDate(paidDate),
     'amount': ?amount,
     'merchant': ?merchant,
+    'memo': ?memo,
     'category_id': ?categoryId,
   };
 

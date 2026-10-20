@@ -54,6 +54,8 @@ def record_payment(conn: sqlite3.Connection, payment: ParsedPayment) -> RecordRe
         amount=payment.amount,
         merchant=payment.merchant,
         merchant_key=merchant_key,
+        # 取り込みと現金の記録では空にする。買った物などは後からアプリで書く
+        memo="",
         category_id=category_id,
         status=Status.CONFIRMED if category_id is not None else Status.PENDING,
         payment_method=payment.payment_method,

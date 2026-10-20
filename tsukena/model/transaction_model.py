@@ -14,6 +14,7 @@ class Transaction:
     amount: int
     merchant: str
     merchant_key: str
+    memo: str
     category_id: int | None
     status: Status
     payment_method: str
@@ -31,6 +32,7 @@ class TransactionInput:
     amount: int
     merchant: str
     merchant_key: str
+    memo: str
     category_id: int | None
     status: Status
     payment_method: str
@@ -45,4 +47,5 @@ class TransactionUpdate:
     paid_date: datetime.date | None = None
     amount: int | None = None
     merchant: str | None = None
+    memo: str | None = None
     category_id: int | None = None

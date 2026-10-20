@@ -24,6 +24,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
   late DateTime _paidDate;
   late String _amountText;
   late String _merchant;
+  late String _memo;
   int? _categoryId;
   bool _saving = false;
 
@@ -35,6 +36,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
     _paidDate = transaction.paidDate;
     _amountText = transaction.amount.toString();
     _merchant = transaction.merchant;
+    _memo = transaction.memo;
     _categoryId = transaction.categoryId;
   }
 
@@ -78,6 +80,17 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
                 decoration: const InputDecoration(labelText: '店名'),
                 initialValue: _merchant,
                 onChanged: (value) => _merchant = value,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: 'メモ',
+                  hintText: '買った物など',
+                ),
+                initialValue: _memo,
+                minLines: 1,
+                maxLines: 3,
+                onChanged: (value) => _memo = value,
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
@@ -157,6 +170,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
           : _paidDate,
       amount: amount == original.amount ? null : amount,
       merchant: _merchant == original.merchant ? null : _merchant,
+      memo: _memo == original.memo ? null : _memo,
       categoryId: _categoryId == original.categoryId ? null : _categoryId,
     );
 

@@ -57,6 +57,7 @@ model の `Transaction` から、照合キー（`merchant_key`）と重複排除
   "paid_date": "2026-11-27",
   "amount": 800,
   "merchant": "スターバックス",
+  "memo": "",
   "category_id": 1,
   "status": "confirmed",
   "payment_method": "楽天カード",
@@ -185,6 +186,7 @@ Discord から送られた現金の記録（17）は、bot 用のトークンで
   "paid_date": "2026-11-27",
   "amount": 850,
   "merchant": "スタバ",
+  "memo": "期間限定のフラペチーノ",
   "category_id": 1
 }
 ```
@@ -197,6 +199,7 @@ Discord から送られた現金の記録（17）は、bot 用のトークンで
 | ---------------------------------- | -------------------------------------------------------------------- |
 | `category_id`                      | 状態を確定（`confirmed`）にし、その記録の照合キーの分類ルールを作成または上書きする。照合キーが空文字ならルールは作らない |
 | `merchant`                         | 照合キーを作り直す。分類ルールは引き直さず、カテゴリと状態は変えない |
+| `memo`                             | メモだけを変える。分類には使わないので、照合キー・カテゴリ・状態は変えない。空文字を送ると消える |
 | `occurred_date`（`paid_date` は送らない） | 支払日を支払い手段のルールから計算し直す                       |
 | `paid_date`                        | 送った値をそのまま使う（`occurred_date` を一緒に送っても計算しない） |
 
@@ -445,6 +448,7 @@ bot の持ち主が DM で送ったメッセージを、bot がそのまま送�
     "paid_date": "2026-10-15",
     "amount": 800,
     "merchant": "ランチ",
+    "memo": "",
     "category_id": 1,
     "status": "confirmed",
     "payment_method": "現金",

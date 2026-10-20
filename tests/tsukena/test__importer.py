@@ -125,18 +125,21 @@ def test_失敗の記録が無いメールは取り込み直せない(conn, gmai
         importer.retry_failed_mail(conn, "unknown")
 
 
-def test_古いDBに全期間の取り込みの列を足す():
+def test_古いDBに全期間の取り込みとメモの列を足す():
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     conn.execute(
         "CREATE TABLE settings (id INTEGER PRIMARY KEY, monthly_budget INTEGER, gmail_label TEXT)"
     )
     conn.execute("INSERT INTO settings VALUES (1, 80000, 'Tsukena')")
+    conn.execute("CREATE TABLE transactions (id INTEGER PRIMARY KEY, amount INTEGER)")
+    conn.execute("INSERT INTO transactions VALUES (1, 500)")
 
     migrate(conn)
     migrate(conn)  # 2回目は何もしない
 
     assert not fetch_setting(conn).full_import_done
+    assert conn.execute("SELECT memo FROM transactions").fetchone()[0] == ""
 
 
 def _add_failure(conn: sqlite3.Connection, message_id: str, reason: str = "理由") -> None:

@@ -430,6 +430,7 @@ class Transaction:
     amount: int
     merchant: str
     merchant_key: str
+    memo: str
     category_id: int | None
     status: Status
     payment_method: str
@@ -450,6 +451,7 @@ class Transaction:
 | `amount`         | int           | 〇   | 金額（円）                                             |
 | `merchant`       | str           | 〇   | 店名・メモ（生の文字列）。無ければ空文字               |
 | `merchant_key`   | str           | 〇   | 正規化した店名・メモ。無ければ空文字                   |
+| `memo`           | str           | 〇   | 買った物などの覚え書き（生の文字列）。無ければ空文字   |
 | `category_id`    | int \| None   | -    | カテゴリの ID。未設定なら `None`                       |
 | `status`         | Status        | 〇   | 記録の状態                                             |
 | `payment_method` | str           | 〇   | 支払い手段                                             |
@@ -464,6 +466,7 @@ class Transaction:
   - 時刻（`occurred_time`）は秒とマイクロ秒を0とし、タイムゾーンを持たない。
   - 支払日（`paid_date`）は利用日（`occurred_date`）より前にならない。記録したときはルールから計算した値であり、アプリで直したあとは直した値である。
   - 照合キー（`merchant_key`）は、店名・メモ（`merchant`）を `normalize` に通した結果と一致する。
+  - メモ（`memo`）は記録したときは空文字であり、アプリで書いたあとは書いた値である。照合キーにも分類にも使わない。
   - 状態が確定（`CONFIRMED`）であることと、カテゴリ（`category_id`）が `None` でないことは同値である。
   - 重複排除キー（`source_ref`）は記録全体で一意であり、先頭の部分は入口（`source`）の値と一致する。
   - 更新日時（`updated_at`）は作成日時（`created_at`）より前にならない。
@@ -480,6 +483,7 @@ class TransactionUpdate:
     paid_date: date | None = None
     amount: int | None = None
     merchant: str | None = None
+    memo: str | None = None
     category_id: int | None = None
 ```
 
@@ -491,6 +495,7 @@ class TransactionUpdate:
 | `paid_date`     | date \| None  | -    | 新しい支払日。変えないなら `None`                    |
 | `amount`        | int \| None   | -    | 新しい金額（円）。変えないなら `None`                |
 | `merchant`      | str \| None   | -    | 新しい店名・メモ（生の文字列）。変えないなら `None`  |
+| `memo`          | str \| None   | -    | 新しいメモ（生の文字列）。変えないなら `None`。空文字で消す |
 | `category_id`   | int \| None   | -    | 選んだカテゴリの ID。変えないなら `None`             |
 
 - 不変条件

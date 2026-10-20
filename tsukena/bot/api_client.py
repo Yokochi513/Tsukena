@@ -133,6 +133,7 @@ def _to_transaction(data: dict[str, Any], message_id: int) -> Transaction:
         merchant=data["merchant"],
         # 照合キーと重複排除キーは API が返さない（サーバーの内部でだけ使う）ため、同じ規則で作り直す
         merchant_key=normalize(data["merchant"]),
+        memo=data["memo"],
         category_id=data["category_id"],
         status=Status(data["status"]),
         payment_method=data["payment_method"],

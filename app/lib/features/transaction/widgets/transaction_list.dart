@@ -48,7 +48,12 @@ class TransactionList extends StatelessWidget {
               title: Text(
                 transaction.merchant.isEmpty ? '(店名無し)' : transaction.merchant,
               ),
-              subtitle: Text('$datetime ・ ${transaction.paymentMethod}'),
+              // メモがあれば、何を買ったか分かるよう2行目に出す
+              subtitle: Text(
+                transaction.memo.isEmpty
+                    ? '$datetime ・ ${transaction.paymentMethod}'
+                    : '$datetime ・ ${transaction.paymentMethod}\n${transaction.memo}',
+              ),
               trailing: Text(
                 '¥${_formatAmount(transaction.amount)}',
                 style: textTheme.titleMedium?.copyWith(

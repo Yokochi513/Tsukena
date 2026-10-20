@@ -389,6 +389,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | `amount`         | INTEGER   | 〇   | 金額（円、正の整数）                               |
 | `merchant`       | TEXT      | 〇   | 店名・メモ（生の文字列）。無ければ空文字           |
 | `merchant_key`   | TEXT      | 〇   | 正規化した店名・メモ。無ければ空文字               |
+| `memo`           | TEXT      | 〇   | 買った物などの覚え書き（アプリで書く）。分類には使わない。無ければ空文字 |
 | `category_id`    | INTEGER   | -    | カテゴリ。未設定なら NULL                          |
 | `status`         | TEXT      | 〇   | `confirmed`（確定） / `pending`（確認待ち）         |
 | `payment_method` | TEXT      | 〇   | 支払い手段（`現金`、`楽天カード` など）            |
