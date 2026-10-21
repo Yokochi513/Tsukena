@@ -171,7 +171,7 @@ Discord から送られた現金の記録（17）は、bot 用のトークンで
 レスポンス `200`: `Transaction` の配列。
 
 - 並びは利用日の新しい順、同じ日なら時刻の新しい順（時刻の無いものは後）、さらに ID の大きい順とする。
-- 月の明細（`expense_list_page`）は `month` だけを、確認待ちの一覧（`pending_page`）は `status=pending` だけを指定する。確認待ちは月をまたいで溜まるため、月で絞らずに出す。
+- 月の明細（`expense_list_page`）は `month` だけを、同じ画面の確認待ちのバナーとシートは `status=pending` だけを指定する。確認待ちは月をまたいで溜まるため、月で絞らずに出す。
 - ページ分けはしない。利用者が1人で、1か月の記録は数百件に収まる見込みのためである。
 - 複数の引数を指定したときは、すべてに当てはまる記録を返す。
 - `source_ref` は、bot がリアクションの付いた返事から記録を探すときに使う（`source_ref=discord:{元のメッセージの ID}`）。重複排除キーは一意なので、結果は0件か1件になる。見つからなくても `404` にせず、空の配列を返す。
@@ -483,9 +483,8 @@ bot の持ち主が DM で送ったメッセージを、bot がそのまま送�
 | page                | 呼ぶエンドポイント                                                         |
 | ------------------- | -------------------------------------------------------------------------- |
 | `month_page`        | 1                                                                          |
-| `expense_list_page` | 2（`month`）、9                                                            |
+| `expense_list_page` | 2（`month`）、9。確認待ちのシートで 2（`status=pending`）、3（`category_id` と `memo`、または `memo` だけ） |
 | `expense_edit_page` | 3、4、9                                                                    |
-| `pending_page`      | 2（`status=pending`）、3（`category_id` だけ）、9                          |
 | `income_list_page`  | 5                                                                          |
 | `income_edit_page`  | 6、7、8                                                                    |
 | `settings_page`     | 9、10、11、12、13、14、15                                                  |
