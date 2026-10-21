@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tsukena/components/calendar/month_cells.dart';
+import 'package:tsukena/components/date_picker/calendar/month_cells.dart';
 
 class CalenderMonthGrid extends StatelessWidget {
   const CalenderMonthGrid({

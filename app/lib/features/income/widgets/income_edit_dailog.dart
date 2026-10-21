@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tsukena/components/date_picker.dart';
+import 'package:tsukena/components/date_picker/date_picker.dart';
 import 'package:tsukena/features/income/entities/income.dart';
 import 'package:tsukena/features/income/entities/income_input.dart';
 import 'package:tsukena/features/income/repositories/income_repository.dart';
