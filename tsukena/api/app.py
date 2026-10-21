@@ -13,6 +13,7 @@ from ..model.api_tokens import ApiTokens
 from ..model.enum.record_outcome import RecordOutcome
 from ..model.enum.status import Status
 from ..repositories.category_repository import (
+    DuplicateCategoryError,
     fetch_categories,
     insert_category,
     update_category,
@@ -176,7 +177,13 @@ def create_app(
         dependencies=[APP_ONLY],
     )
     def post_category(body: CategoryIn, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
-        return CategoryOut.from_model(insert_category(conn, body.to_model()))
+        try:
+            category = insert_category(conn, body.to_model())
+        except DuplicateCategoryError:
+            raise HTTPException(
+                status_code=422, detail="Category name or emoji already exists"
+            ) from None
+        return CategoryOut.from_model(category)
 
     @app.patch(
         "/categories/{category_id}", response_model=CategoryOut, dependencies=[APP_ONLY]
@@ -186,7 +193,12 @@ def create_app(
         body: CategoryIn,
         conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
     ):
-        category = update_category(conn, category_id, body.to_model())
+        try:
+            category = update_category(conn, category_id, body.to_model())
+        except DuplicateCategoryError:
+            raise HTTPException(
+                status_code=422, detail="Category name or emoji already exists"
+            ) from None
 
         if category is None:
             raise HTTPException(status_code=404, detail="Category not found")
