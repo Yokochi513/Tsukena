@@ -3,12 +3,20 @@ import sqlite3
 from ..model.category_model import Category, CategoryInput
 
 
+class DuplicateCategoryError(Exception):
+    """名前か絵文字が、既にあるカテゴリと同じ"""
+
+
 def insert_category(conn: sqlite3.Connection, category: CategoryInput) -> Category:
-    cur = conn.execute(
-        "INSERT INTO categories (name, emoji, sort_order) VALUES (?, ?, ?)",
-        (category.name, category.emoji, category.sort_order),
-    )
-    conn.commit()
+    try:
+        with conn:
+            cur = conn.execute(
+                "INSERT INTO categories (name, emoji, sort_order) VALUES (?, ?, ?)",
+                (category.name, category.emoji, category.sort_order),
+            )
+    except sqlite3.IntegrityError:
+        # 空文字は API の入口で弾くため、ここで残る制約違反は名前か絵文字の重複
+        raise DuplicateCategoryError from None
 
     return Category(
         id=cur.lastrowid,
@@ -35,11 +43,14 @@ def update_category(
         sort_order=update.sort_order,
     )
 
-    conn.execute(
-        "UPDATE categories SET name = ?, emoji = ?, sort_order = ? WHERE id = ?",
-        (updated.name, updated.emoji, updated.sort_order, category_id),
-    )
-    conn.commit()
+    try:
+        with conn:
+            conn.execute(
+                "UPDATE categories SET name = ?, emoji = ?, sort_order = ? WHERE id = ?",
+                (updated.name, updated.emoji, updated.sort_order, category_id),
+            )
+    except sqlite3.IntegrityError:
+        raise DuplicateCategoryError from None
     return updated
 
 
