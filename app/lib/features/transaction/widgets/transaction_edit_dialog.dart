@@ -50,7 +50,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
       });
 
     return AlertDialog(
-      title: const Text('取引を編集'),
+      title: const Text('支出を編集'),
       content: SizedBox(
         width: 400,
         child: SingleChildScrollView(
@@ -180,7 +180,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _showError('取引の修正に失敗しました');
+      _showError('支出の修正に失敗しました');
       return;
     }
     if (!mounted) return;
@@ -197,7 +197,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('この取引を削除しますか?'),
+        title: const Text('この支出を削除しますか?'),
         actions: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

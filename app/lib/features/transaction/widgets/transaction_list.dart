@@ -17,7 +17,7 @@ class TransactionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (transactions.isEmpty) {
-      return const Center(child: Text('取引がありません'));
+      return const Center(child: Text('支出がありません'));
     }
 
     final textTheme = Theme.of(context).textTheme;

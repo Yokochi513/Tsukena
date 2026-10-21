@@ -28,11 +28,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('取引一覧'),
+        title: const Text('支出一覧'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: '取引読み込み',
+            tooltip: '支出読み込み',
             onPressed: () {
               _reload();
             },
@@ -47,7 +47,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
           }
 
           if (snapshot.hasError) {
-            return const Center(child: Text('取引の取得に失敗しました'));
+            return const Center(child: Text('支出の取得に失敗しました'));
           }
 
           final (transactions, categoryMap) = snapshot.requireData;

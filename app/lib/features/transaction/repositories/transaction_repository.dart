@@ -24,7 +24,7 @@ class TransactionService {
     final response = await ApiHttp.get(uri);
 
     if (response.statusCode != 200) {
-      throw Exception('取引の取得に失敗しました');
+      throw Exception('支出の取得に失敗しました');
     }
 
     final items = jsonDecode(response.body) as List<dynamic>;
@@ -44,7 +44,7 @@ class TransactionService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('取引の修正に失敗しました');
+      throw Exception('支出の修正に失敗しました');
     }
 
     return Transaction.fromJson(
@@ -58,7 +58,7 @@ class TransactionService {
     );
 
     if (response.statusCode != 204) {
-      throw Exception('取引の削除に失敗しました');
+      throw Exception('支出の削除に失敗しました');
     }
   }
 }
