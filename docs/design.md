@@ -464,7 +464,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 
 スマホアプリと bot が呼ぶ。見出しの「スマホアプリ向け」は、他の文書からの参照（アンカー）を保つために残している。
 
-`/oauth/google/callback` を除き、すべて `Authorization: Bearer {トークン}` を必要とする。`/oauth/google/callback` は Google からのリダイレクトでブラウザが呼ぶためヘッダーを付けられず、代わりに `state` で確かめる（→ [api_list.md 2.7](./api_list.md#27-gmail-連携)）。トークンはスマホアプリ用と bot 用の2つをサーバーの設定に持ち、エンドポイントごとにどちらで呼べるかを決める（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
+`/` と `/oauth/google/callback` を除き、すべて `Authorization: Bearer {トークン}` を必要とする。`/` は何のサーバーかを示すだけのページで、データを返さない（→ [api_list.md 2.9](./api_list.md#29-サーバーの説明)）。`/oauth/google/callback` は Google からのリダイレクトでブラウザが呼ぶためヘッダーを付けられず、代わりに `state` で確かめる（→ [api_list.md 2.7](./api_list.md#27-gmail-連携)）。トークンはスマホアプリ用と bot 用の2つをサーバーの設定に持ち、エンドポイントごとにどちらで呼べるかを決める（→ [ADR-0007](./adr/0007-bot-accesses-data-through-api.md)）。
 現金の記録（`POST /cash-records`）は bot 用のトークンでしか呼べない。スマホアプリから支出を追加できない方針（→ [4.3](#43-スマホアプリ修正確認待ち振り返り収入)）を、API の側で守るためである。
 各エンドポイントの入力・出力・エラーは [API 一覧](./api_list.md) で定める。
 
@@ -488,6 +488,7 @@ SQLite のテーブル。詳細な型と不変条件は `docs/module/model_desig
 | POST     | `/cash-records`                    | 現金の記録（bot 用のトークンだけ。Discord のメッセージの本文・ID・送信時刻を受け取り、分解して記録する） |
 | GET      | `/oauth/google/start`              | Gmail 連携の開始（Google の同意画面へ）       |
 | GET      | `/oauth/google/callback`           | Gmail 連携の完了（認証情報を保存）           |
+| GET      | `/`                                | サーバーの説明（HTML。トークン不要）         |
 
 ## 11. 非機能
 

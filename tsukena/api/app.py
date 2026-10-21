@@ -85,6 +85,16 @@ def create_app(
         allow_headers=["Authorization", "Content-Type"],
     )
 
+    # 外から URL だけを見に来た人（セキュリティ製品の審査を含む）に、何のサーバーかを示す（→ docs/api_list.md 2.9）
+    @app.get("/", response_class=HTMLResponse)
+    def index():
+        return _html_page(
+            "このサーバーについて",
+            "Tsukena は、個人が自分ひとりで使う家計簿アプリのサーバー（API）です。"
+            "スマホアプリと Discord の bot だけが、トークンを付けて呼び出します。"
+            "利用者の登録や、外部の方が使える機能はありません。",
+        )
+
     @app.get(
         "/transactions", response_model=list[TransactionOut], dependencies=[APP_OR_BOT]
     )
