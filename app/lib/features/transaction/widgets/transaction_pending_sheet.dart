@@ -150,17 +150,34 @@ class _TransactionPendingSheetState extends State<TransactionPendingSheet> {
             '$datetime ・ ${transaction.paymentMethod}',
             style: textTheme.bodySmall,
           ),
-          // Discord で一言添えた現金の記録は、何を買ったかがメモに入っている。そのまま書き直せる
-          TextField(
-            controller: _memoControllers[transaction.id],
-            enabled: !saving,
-            decoration: const InputDecoration(
-              labelText: 'メモ',
-              hintText: '何を買ったか',
-              isDense: true,
-            ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _saveMemo(transaction),
+          // Discord で一言添えた現金の記録は、何を買ったかがメモに入っている。そのまま書き直せる。
+          // 複数行にするため Enter は改行に使い、保存は書き換えたときだけ出るボタンか、カテゴリの選択で行う
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _memoControllers[transaction.id]!,
+            builder: (context, value, _) {
+              final changed = value.text.trim() != _savedMemos[transaction.id];
+              return TextField(
+                controller: _memoControllers[transaction.id],
+                enabled: !saving,
+                decoration: InputDecoration(
+                  labelText: 'メモ',
+                  hintText: '何を買ったか',
+                  isDense: true,
+                  suffixIcon: changed
+                      ? IconButton(
+                          icon: const Icon(Icons.check),
+                          tooltip: 'メモを保存',
+                          onPressed: saving
+                              ? null
+                              : () => _saveMemo(transaction),
+                        )
+                      : null,
+                ),
+                keyboardType: TextInputType.multiline,
+                minLines: 1,
+                maxLines: 4,
+              );
+            },
           ),
           const SizedBox(height: 8),
           // カテゴリが多くても1行に収め、横にスクロールさせる

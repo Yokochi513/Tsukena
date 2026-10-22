@@ -61,7 +61,9 @@ class _IncomeEditDialogState extends State<IncomeEditDialog> {
             const SizedBox(height: 16),
             TextFormField(
               decoration: const InputDecoration(labelText: 'メモ'),
-              keyboardType: TextInputType.text,
+              keyboardType: TextInputType.multiline,
+              minLines: 2,
+              maxLines: 5,
               initialValue: fieldInput.memo,
               onChanged: (value) {
                 fieldInput.memo = value;
