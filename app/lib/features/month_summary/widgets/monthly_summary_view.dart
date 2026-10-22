@@ -8,6 +8,7 @@ class MonthlySummaryView extends StatelessWidget {
     required this.summary,
     this.onTapIncome,
     this.onTapExpense,
+    this.onTapCategory,
   });
 
   final MonthlySummary summary;
@@ -15,6 +16,9 @@ class MonthlySummaryView extends StatelessWidget {
   /// 収入・支出の行を押したときに呼ぶ。null なら押せない
   final VoidCallback? onTapIncome;
   final VoidCallback? onTapExpense;
+
+  /// カテゴリの内訳の行を押したときに呼ぶ。null なら押せない
+  final ValueChanged<CategoryTotal>? onTapCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +146,7 @@ class MonthlySummaryView extends StatelessWidget {
     final ratio = summary.total == 0 ? 0.0 : item.amount / summary.total;
 
     return ListTile(
+      onTap: onTapCategory == null ? null : () => onTapCategory!(item),
       leading: Text(category?.emoji ?? '❓', style: textTheme.titleLarge),
       title: Row(
         children: [

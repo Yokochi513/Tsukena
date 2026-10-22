@@ -3,6 +3,9 @@ import 'package:tsukena/components/month_switcher/month_switcher.dart';
 import 'package:tsukena/features/month_summary/entities/monthly_summary.dart';
 import 'package:tsukena/features/month_summary/repositories/month_summary_repository.dart';
 import 'package:tsukena/features/month_summary/widgets/monthly_summary_view.dart';
+import 'package:tsukena/features/transaction/entities/transaction.dart';
+import 'package:tsukena/features/transaction/repositories/transaction_repository.dart';
+import 'package:tsukena/features/transaction/widgets/transaction_brief_sheet.dart';
 import 'package:tsukena/pages/settings_page.dart';
 
 /// 起動時の画面。月を切り替えて、その月の収支・予算の残り・カテゴリ別の内訳を見る。
@@ -86,6 +89,7 @@ class _MonthPageState extends State<MonthPage> {
                     summary: summary,
                     onTapIncome: widget.onOpenIncomes,
                     onTapExpense: widget.onOpenTransactions,
+                    onTapCategory: _showCategory,
                   );
                 },
               ),
@@ -94,6 +98,37 @@ class _MonthPageState extends State<MonthPage> {
         ),
       ),
     );
+  }
+
+  /// カテゴリの内訳の明細を、下からのシートで手短に見せる
+  void _showCategory(CategoryTotal item) {
+    final category = item.category;
+    // builder はシートが描き直されるたびに呼ばれるので、取得はその外で1回だけ始める
+    final transactions = _fetchCategory(category?.id);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => TransactionBriefSheet(
+        title: category == null
+            ? '❓ 未分類（確認待ち）'
+            : '${category.emoji} ${category.name}',
+        transactions: transactions,
+      ),
+    );
+  }
+
+  /// 集計と同じ数え方で、その月のそのカテゴリの支出を取る。
+  /// 集計では確認待ちを、カテゴリが付いていても未分類にまとめる（→ docs/module/model_design.md の CategoryTotal）
+  Future<List<Transaction>> _fetchCategory(int? categoryId) async {
+    final transactions = await TransactionService().getTransactions(
+      month: formatYearMonth(widget.month),
+    );
+    return transactions.where((t) {
+      if (categoryId == null) return t.status == TransactionStatus.pending;
+      return t.status == TransactionStatus.confirmed &&
+          t.categoryId == categoryId;
+    }).toList();
   }
 
   void _reload() {
