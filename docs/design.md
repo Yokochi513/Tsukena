@@ -520,7 +520,9 @@ Tsukena/
 │   └── sample/                … テーブルごとのサンプルデータ（NN_{テーブル名}.sql。番号の順に流す）
 ├── tsukena/                   … サーバー（Python パッケージ）
 │   ├── api/                   … REST API（`python -m tsukena.api` で起動する）
-│   │   └── __main__.py        … API と定期実行のプロセスの起動
+│   │   ├── __main__.py        … API と定期実行のプロセスの起動
+│   │   ├── app.py             … アプリの組み立て（CORS とルーターの登録）
+│   │   └── routers/           … エンドポイントをリソースごとに置く（transactions.py、budget.py など）
 │   ├── bot/                   … Discord bot（`python -m tsukena.bot` で起動する）
 │   │   ├── __main__.py        … bot のプロセスの起動
 │   │   ├── discord_bot.py
