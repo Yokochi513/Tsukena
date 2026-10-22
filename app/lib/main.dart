@@ -32,6 +32,19 @@ class MyApp extends StatelessWidget {
           PointerDeviceKind.trackpad,
         },
       ),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          // スクロールしたときに AppBar へ色が乗らないようにする
+          surfaceTintColor: Colors.transparent,
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: Colors.white,
+        ),
+      ),
     );
   }
 }
