@@ -29,6 +29,7 @@ from ..repositories.income_repository import (
     remove_income,
     update_income,
 )
+from ..repositories.setting_repository import fetch_setting, update_monthly_budget
 from ..repositories.transaction_repository import fetch_transactions, remove_transaction
 from ..services.importer import ImportFailureNotFoundError, retry_failed_mail
 from ..services.transaction_service import (
@@ -42,6 +43,8 @@ from ..services.transaction_service import (
 from .auth import Caller, allow
 from .oauth_state import OAuthStateStore
 from .schemas import (
+    BudgetIn,
+    BudgetOut,
     CashRecordIn,
     CategoryIn,
     CategoryOut,
@@ -81,7 +84,7 @@ def create_app(
         # 本番の Web 版（GitHub Pages）は API と別のオリジンなので、設定に書いたオリジンを許可する（→ ADR-0010）
         allow_origins=cors_origins or [],
         allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         # Authorization はブラウザが既定では許さないヘッダーなので、明示しないとプリフライトで断られる
         allow_headers=["Authorization", "Content-Type"],
     )
@@ -213,6 +216,16 @@ def create_app(
         if category is None:
             raise HTTPException(status_code=404, detail="Category not found")
         return CategoryOut.from_model(category)
+
+    @app.get("/budget", response_model=BudgetOut, dependencies=[APP_ONLY])
+    def get_budget(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        return BudgetOut(monthly_budget=fetch_setting(conn).monthly_budget)
+
+    # 予算は全体で1つだけ持つ。変えると過去の月の集計もこの値で計算される（→ docs/api_list.md 2.5）
+    @app.put("/budget", response_model=BudgetOut, dependencies=[APP_ONLY])
+    def put_budget(body: BudgetIn, conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
+        update_monthly_budget(conn, body.monthly_budget)
+        return BudgetOut(monthly_budget=fetch_setting(conn).monthly_budget)
 
     @app.post(
         "/cash-records",

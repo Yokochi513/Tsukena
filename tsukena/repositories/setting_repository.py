@@ -19,3 +19,10 @@ def fetch_setting(conn: sqlite3.Connection) -> Setting:
 def mark_full_import_done(conn: sqlite3.Connection) -> None:
     with conn:
         conn.execute("UPDATE settings SET full_import_done = 1 WHERE id = 1")
+
+
+def update_monthly_budget(conn: sqlite3.Connection, monthly_budget: int) -> None:
+    with conn:
+        conn.execute(
+            "UPDATE settings SET monthly_budget = ? WHERE id = 1", (monthly_budget,)
+        )

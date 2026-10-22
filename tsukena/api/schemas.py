@@ -167,6 +167,14 @@ class RecordResultOut(BaseModel):
         )
 
 
+class BudgetIn(BaseModel):
+    monthly_budget: int = Field(ge=1)
+
+
+class BudgetOut(BaseModel):
+    monthly_budget: int
+
+
 class GoogleAuthStartOut(BaseModel):
     authorization_url: str
 
