@@ -113,7 +113,10 @@ class _MonthPageState extends State<MonthPage> {
         title: category == null
             ? '❓ 未分類（確認待ち）'
             : '${category.emoji} ${category.name}',
+        month: widget.month,
         transactions: transactions,
+        // 支払日を直すと月の集計が変わる。シートの後ろの集計も取り直しておく
+        onPaidDateChanged: _reload,
       ),
     );
   }
