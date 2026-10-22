@@ -9,6 +9,7 @@ from ..model.enum.status import Status
 from ..model.import_failure_model import ImportFailure
 from ..model.income_model import Income, IncomeInput
 from ..model.record_model import RecordResult
+from ..model.summary_model import CategoryTotal, MonthlySummary
 from ..model.transaction_model import Transaction, TransactionUpdate
 
 
@@ -164,6 +165,42 @@ class RecordResultOut(BaseModel):
             category=CategoryOut.from_model(r.category)
             if r.category is not None
             else None,
+        )
+
+
+class CategoryTotalOut(BaseModel):
+    category: CategoryOut | None  # カテゴリが未設定（確認待ち）の記録の合計なら null
+    amount: int
+
+    @classmethod
+    def from_model(cls, c: CategoryTotal) -> "CategoryTotalOut":
+        return cls(
+            category=(
+                CategoryOut.from_model(c.category) if c.category is not None else None
+            ),
+            amount=c.amount,
+        )
+
+
+class MonthlySummaryOut(BaseModel):
+    month: str
+    income_total: int
+    total: int
+    balance: int
+    budget: int
+    remaining: int
+    by_category: list[CategoryTotalOut]
+
+    @classmethod
+    def from_model(cls, s: MonthlySummary) -> "MonthlySummaryOut":
+        return cls(
+            month=s.month,
+            income_total=s.income_total,
+            total=s.total,
+            balance=s.balance,
+            budget=s.budget,
+            remaining=s.remaining,
+            by_category=[CategoryTotalOut.from_model(c) for c in s.by_category],
         )
 
 

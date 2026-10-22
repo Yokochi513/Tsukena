@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
@@ -30,6 +31,7 @@ from ..repositories.income_repository import (
     update_income,
 )
 from ..repositories.setting_repository import fetch_setting, update_monthly_budget
+from ..repositories.summary_repository import fetch_monthly_summary
 from ..repositories.transaction_repository import fetch_transactions, remove_transaction
 from ..services.importer import ImportFailureNotFoundError, retry_failed_mail
 from ..services.transaction_service import (
@@ -53,6 +55,7 @@ from .schemas import (
     ImportRetryOut,
     IncomeIn,
     IncomeOut,
+    MonthlySummaryOut,
     RecordResultOut,
     TransactionOut,
     TransactionUpdateIn,
@@ -98,6 +101,18 @@ def create_app(
             "スマホアプリと Discord の bot だけが、トークンを付けて呼び出します。"
             "利用者の登録や、外部の方が使える機能はありません。",
         )
+
+    # 記録も収入も無い月や来月以降の月でも 404 にせず、合計を0で返す（→ docs/api_list.md 2.1）
+    @app.get(
+        "/months/{month}/summary",
+        response_model=MonthlySummaryOut,
+        dependencies=[APP_ONLY],
+    )
+    def get_monthly_summary(
+        month: str = PathParam(pattern=MONTH_PATTERN),
+        conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+    ):
+        return MonthlySummaryOut.from_model(fetch_monthly_summary(conn, month))
 
     @app.get(
         "/transactions", response_model=list[TransactionOut], dependencies=[APP_OR_BOT]
