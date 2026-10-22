@@ -497,7 +497,9 @@ bot の持ち主が DM で送ったメッセージを、bot がそのまま送�
 | `expense_edit_page` | 3、4、9                                                                    |
 | `income_list_page`  | 5                                                                          |
 | `income_edit_page`  | 6、7、8                                                                    |
-| `settings_page`     | 9、10、11、12、13、14、15                                                  |
+| `settings_page`     | 9（件数だけ）、12、13、14（件数だけ）、15                                  |
+| `category_list_page` | 9、10、11                                                                 |
+| `import_failure_page` | 14、19                                                                   |
 
 bot（`tsukena/bot/`）が呼ぶエンドポイントは次のとおり。
 

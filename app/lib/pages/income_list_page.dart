@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tsukena/pages/settings_page.dart';
 import 'package:tsukena/features/income/entities/income.dart';
 import 'package:tsukena/features/income/repositories/income_repository.dart';
 import 'package:tsukena/features/income/widgets/incomes_list.dart';
@@ -33,6 +34,7 @@ class _ExpenseListPageState extends State<IncomeListPage> {
               _reload();
             },
           ),
+          const SettingsButton(),
         ],
       ),
       body: FutureBuilder<List<Income>>(

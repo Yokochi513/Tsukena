@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/pages/transaction_list_page.dart';
 import 'package:tsukena/pages/income_list_page.dart';
-import 'package:tsukena/pages/settings_page.dart';
 
+/// 下のタブでは、毎日見る記録の画面だけを切り替える。設定はたまにしか開かないので、各画面の右上から開く
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -18,7 +18,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: [TransactionListPage(), IncomeListPage(), SettingsPage()],
+        children: [TransactionListPage(), IncomeListPage()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -37,11 +37,6 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: '収入',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: '設定',
           ),
         ],
       ),

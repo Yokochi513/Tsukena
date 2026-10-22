@@ -1,6 +1,7 @@
 import 'dart:core';
 
 import 'package:flutter/material.dart';
+import 'package:tsukena/pages/settings_page.dart';
 import 'package:tsukena/components/show_modal_top_sheet/show_modal_top_sheet.dart';
 import 'package:tsukena/features/transaction/entities/transaction.dart';
 import 'package:tsukena/features/transaction/entities/category.dart';
@@ -40,6 +41,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
               _reload();
             },
           ),
+          const SettingsButton(),
         ],
       ),
       body: FutureBuilder(

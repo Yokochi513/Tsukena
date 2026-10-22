@@ -1,14 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:tsukena/features/budget/entities/budget.dart';
+import 'package:tsukena/features/budget/repositories/budget_repository.dart';
+import 'package:tsukena/features/budget/widgets/budget_edit_dialog.dart';
 import 'package:tsukena/features/gmail_link/repositories/gmail_link_repository.dart';
 import 'package:tsukena/features/import_failure/entities/import_failure.dart';
 import 'package:tsukena/features/import_failure/repositories/import_failure_repository.dart';
-import 'package:tsukena/features/import_failure/widgets/import_failure_list.dart';
 import 'package:tsukena/features/transaction/entities/category.dart';
 import 'package:tsukena/features/transaction/repositories/category_repository.dart';
-import 'package:tsukena/features/transaction/widgets/category_add_dialog.dart';
+import 'package:tsukena/pages/category_list_page.dart';
+import 'package:tsukena/pages/import_failure_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// TODO: 予算の API ができたら月の予算の変更を、カテゴリの名前・絵文字・表示順の変更を足す（→ docs/design.md 5.1）
+/// 設定の画面を開くボタン。下のタブの各画面の右上に置く
+class SettingsButton extends StatelessWidget {
+  const SettingsButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.settings_outlined),
+      tooltip: '設定',
+      onPressed: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage())),
+    );
+  }
+}
+
+/// 設定の項目を1行ずつ並べる。行には今の値や件数だけを出し、一覧や操作は開いた先の画面で行う
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -17,8 +36,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late Future<List<ImportFailure>> _failures;
+  late Future<Budget> _budget;
   late Future<List<Category>> _categories;
+  late Future<List<ImportFailure>> _failures;
   bool _linking = false;
 
   @override
@@ -48,79 +68,60 @@ class _SettingsPageState extends State<SettingsPage> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
-              _sectionTitle('カテゴリ', textTheme),
-              FutureBuilder<List<Category>>(
-                future: _categories,
+              _sectionTitle('家計', textTheme),
+              FutureBuilder<Budget>(
+                future: _budget,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return const ListTile(title: Text('カテゴリの取得に失敗しました'));
-                  }
-                  return Column(
-                    children: [
-                      for (final category in snapshot.data ?? <Category>[])
-                        ListTile(
-                          leading: Text(
-                            category.emoji,
-                            style: textTheme.titleLarge,
-                          ),
-                          title: Text(category.name),
-                        ),
-                    ],
+                  final budget = snapshot.data;
+                  return ListTile(
+                    leading: const Icon(Icons.savings_outlined),
+                    title: const Text('月の予算'),
+                    trailing: _trailing(
+                      snapshot,
+                      (budget) =>
+                          Text('¥${_formatAmount(budget.monthlyBudget)}'),
+                    ),
+                    // 今の値が分からないとダイアログに初期値を出せないため、取れるまでは押せない
+                    onTap: budget == null ? null : () => _editBudget(budget),
                   );
                 },
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: OutlinedButton.icon(
-                  onPressed: _addCategory,
-                  icon: const Icon(Icons.add),
-                  label: const Text('カテゴリを追加'),
-                ),
+              FutureBuilder<List<Category>>(
+                future: _categories,
+                builder: (context, snapshot) {
+                  return ListTile(
+                    leading: const Icon(Icons.label_outline),
+                    title: const Text('カテゴリ'),
+                    trailing: _trailing(
+                      snapshot,
+                      (categories) => Text('${categories.length}件'),
+                    ),
+                    onTap: () => _open(const CategoryListPage()),
+                  );
+                },
               ),
-              const SizedBox(height: 24),
-              _sectionTitle('Gmail 連携', textTheme),
-              const ListTile(
-                subtitle: Text(
-                  '利用通知メールを取り込むために、Gmail の読み取りを許可します。'
-                  '連携が切れたと Discord に届いたときも、ここからやり直してください。',
-                ),
+              const Divider(height: 32),
+              _sectionTitle('メールの取り込み', textTheme),
+              ListTile(
+                leading: const Icon(Icons.mail_outline),
+                title: const Text('Gmail と連携する'),
+                subtitle: const Text('連携が切れたと Discord に届いたときも、ここからやり直します'),
+                trailing: _linking
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.chevron_right),
+                onTap: _linking ? null : _startGmailLink,
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: FilledButton.icon(
-                  onPressed: _linking ? null : _startGmailLink,
-                  icon: _linking
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.mail_outline),
-                  label: const Text('Gmail と連携する'),
-                ),
-              ),
-              const SizedBox(height: 24),
-              _sectionTitle('取り込めなかったメール', textTheme),
               FutureBuilder<List<ImportFailure>>(
                 future: _failures,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return const ListTile(title: Text('取り込めなかったメールの取得に失敗しました'));
-                  }
-                  return ImportFailureList(
-                    failures: snapshot.data ?? [],
-                    onRetry: _retryImport,
+                  return ListTile(
+                    leading: const Icon(Icons.report_outlined),
+                    title: const Text('取り込めなかったメール'),
+                    trailing: _trailing(snapshot, _failureCount),
+                    onTap: () => _open(const ImportFailurePage()),
                   );
                 },
               ),
@@ -133,9 +134,67 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _sectionTitle(String title, TextTheme textTheme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Text(title, style: textTheme.titleMedium),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(
+        title,
+        style: textTheme.titleSmall?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
     );
+  }
+
+  /// 行の右端。値を取れたら value で作った表示と「›」を、取れていなければその状態を出す
+  Widget _trailing<T>(AsyncSnapshot<T> snapshot, Widget Function(T) value) {
+    final Widget shown;
+    if (snapshot.connectionState != ConnectionState.done) {
+      shown = const SizedBox.square(
+        dimension: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    } else if (snapshot.data case final data?) {
+      shown = value(data);
+    } else {
+      shown = Text(
+        '取得できません',
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        shown,
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_right),
+      ],
+    );
+  }
+
+  // 取り込めなかったメールは片付けるまで気づいてほしいので、1件以上なら目立たせる
+  Widget _failureCount(List<ImportFailure> failures) {
+    if (failures.isEmpty) return const Text('なし');
+    return Badge(
+      label: Text('${failures.length}件'),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+    );
+  }
+
+  Future<void> _open(Widget page) async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => page));
+    // 開いた先で追加や取り込み直しをしたかもしれないので、件数を取り直す
+    _reload();
+  }
+
+  Future<void> _editBudget(Budget budget) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (context) => BudgetEditDialog(budget: budget),
+    );
+    if (changed != true) return;
+    _showMessage('予算を変更しました');
+    _reload();
   }
 
   Future<void> _startGmailLink() async {
@@ -155,50 +214,11 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _addCategory() async {
-    final added = await showDialog<bool>(
-      context: context,
-      builder: (context) => const CategoryAddDialog(),
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (match) => ',',
     );
-    if (added != true) return;
-    _showMessage('カテゴリを追加しました');
-    _reload();
-  }
-
-  Future<void> _retryImport(ImportFailure failure) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('取り込み直す'),
-        content: const Text(
-          'このメールを Gmail から取り直し、もう一度解析します。\n'
-          '解析を直した後に押してください。直していないと、また取り込めずに一覧に残ります。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('やめる'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('取り込み直す'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    try {
-      final recorded = await ImportFailureService().retryImport(
-        failure.messageId,
-      );
-      _showMessage('$recorded件を取り込みました。支出の一覧で確かめてください');
-    } on ImportRetryFailedException catch (e) {
-      _showMessage('取り込めませんでした: ${e.reason}');
-    } catch (_) {
-      _showMessage('取り込み直しに失敗しました');
-    }
-    _reload();
   }
 
   void _showMessage(String message) {
@@ -210,6 +230,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _reload() {
     setState(() {
+      _budget = BudgetService().getBudget();
       _categories = CategoryService().getCategories();
       _failures = ImportFailureService().getImportFailures();
     });

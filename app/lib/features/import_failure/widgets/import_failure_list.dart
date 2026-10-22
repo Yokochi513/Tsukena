@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/features/import_failure/entities/import_failure.dart';
 
-/// 取り込めなかったメールの一覧。設定の画面の中に置くため、自分ではスクロールしない。
+/// 取り込めなかったメールの一覧。画面の ListView の中に置くため、自分ではスクロールしない。
 class ImportFailureList extends StatelessWidget {
   const ImportFailureList({super.key, required this.failures, this.onRetry});
 

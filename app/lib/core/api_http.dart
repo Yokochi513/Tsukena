@@ -18,6 +18,9 @@ class ApiHttp {
   static Future<http.Response> post(Uri uri, {Object? body}) =>
       _send(() => http.post(uri, headers: ApiConfig.headers, body: body));
 
+  static Future<http.Response> put(Uri uri, {Object? body}) =>
+      _send(() => http.put(uri, headers: ApiConfig.headers, body: body));
+
   static Future<http.Response> patch(Uri uri, {Object? body}) =>
       _send(() => http.patch(uri, headers: ApiConfig.headers, body: body));
 
