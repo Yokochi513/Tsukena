@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tsukena/pages/month_page.dart';
 import 'package:tsukena/pages/transaction_list_page.dart';
 import 'package:tsukena/pages/income_list_page.dart';
 
@@ -11,14 +12,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 1;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: [TransactionListPage(), IncomeListPage()],
+        children: [TransactionListPage(), MonthPage(), IncomeListPage()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -32,6 +33,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.payment_outlined),
             selectedIcon: Icon(Icons.payments),
             label: '支出',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: '月',
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
