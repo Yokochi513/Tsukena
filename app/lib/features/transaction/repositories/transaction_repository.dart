@@ -11,12 +11,14 @@ class TransactionService {
 
   final String baseUrl;
 
-  // month は支払日の月（"YYYY-MM"）。どちらも省略すると全件を返す
+  // month は支払日の月（"YYYY-MM"）、q は店名かメモに含む文字（表記の揺れはサーバーが吸収する）。
+  // すべて省略すると全件を返す
   Future<List<Transaction>> getTransactions({
     String? month,
     TransactionStatus? status,
+    String? q,
   }) async {
-    final query = {'month': ?month, 'status': ?status?.name};
+    final query = {'month': ?month, 'status': ?status?.name, 'q': ?q};
     final uri = Uri.parse('$baseUrl/transactions').replace(
       // 空の Map を渡すと末尾に "?" だけが付くため、絞り込みが無いときは null にする
       queryParameters: query.isEmpty ? null : query,

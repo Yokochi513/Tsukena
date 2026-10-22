@@ -26,10 +26,11 @@ def get_transactions(
     month: str | None = Query(None, pattern=MONTH_PATTERN),
     status: Status | None = None,
     source_ref: str | None = None,
+    q: str | None = None,
     conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
 ):
     transactions = fetch_transactions(
-        conn, month=month, status=status, source_ref=source_ref
+        conn, month=month, status=status, source_ref=source_ref, q=q
     )
     return [TransactionOut.from_model(t) for t in transactions]
 

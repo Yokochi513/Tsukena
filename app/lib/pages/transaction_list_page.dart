@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:tsukena/components/month_switcher/month_switcher.dart';
 import 'package:tsukena/components/show_modal_top_sheet/show_modal_top_sheet.dart';
 import 'package:tsukena/pages/settings_page.dart';
+import 'package:tsukena/pages/transaction_search_page.dart';
 import 'package:tsukena/features/transaction/entities/transaction.dart';
 import 'package:tsukena/features/transaction/entities/category.dart';
 import 'package:tsukena/features/transaction/repositories/category_repository.dart';
@@ -50,6 +51,11 @@ class _TransactionListPageState extends State<TransactionListPage> {
       appBar: AppBar(
         title: const Text('支出一覧'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: '支出を探す',
+            onPressed: _openSearch,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '支出読み込み',
@@ -128,6 +134,14 @@ class _TransactionListPageState extends State<TransactionListPage> {
       ),
     );
     if (saved == true) _reload();
+  }
+
+  Future<void> _openSearch() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const TransactionSearchPage()),
+    );
+    // 検索の画面で直した支出を、一覧にも映す
+    _reload();
   }
 
   void _reload() {

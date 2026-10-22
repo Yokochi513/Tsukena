@@ -4,6 +4,7 @@ import sqlite3
 from ..model.enum.source import Source
 from ..model.enum.status import Status
 from ..model.transaction_model import Transaction, TransactionInput
+from ..normalize import normalize
 
 
 def fetch_transactions(
@@ -11,6 +12,7 @@ def fetch_transactions(
     month: str | None = None,
     status: Status | None = None,
     source_ref: str | None = None,
+    q: str | None = None,
 ) -> list[Transaction]:
     conditions: list[str] = []
     params: list[str] = []
@@ -25,6 +27,15 @@ def fetch_transactions(
         # bot がリアクションの付いた返事から記録を探すときに使う。一意なので0件か1件になる
         conditions.append("source_ref = ?")
         params.append(source_ref)
+    if q is not None and (key := normalize(q)) != "":
+        # 店名は分類ルールと同じ正規化をしたキー（merchant_key）で比べ、表記の揺れ（全角・大文字・空白）を吸収する。
+        # メモは正規化したキーを持たないので、照合のときに同じ規則で正規化する。
+        # LIKE だと検索語の % や _ が特別な意味を持つため、instr で部分一致を見る
+        conn.create_function("normalize", 1, normalize, deterministic=True)
+        conditions.append(
+            "(instr(merchant_key, ?) > 0 OR instr(normalize(memo), ?) > 0)"
+        )
+        params += [key, key]
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     rows = conn.execute(
