@@ -87,7 +87,7 @@ class CategoryIn(BaseModel):
     # 空文字は DB の制約でも弾かれるが、500 にせず 422 で返すため入口で弾く
     name: str = Field(min_length=1)
     emoji: str = Field(min_length=1)
-    sort_order: int
+    sort_order: int | None = None
 
     def to_model(self) -> CategoryInput:
         return CategoryInput(

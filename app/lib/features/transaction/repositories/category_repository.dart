@@ -5,6 +5,9 @@ import 'package:tsukena/core/api_http.dart';
 import 'package:tsukena/features/transaction/entities/category.dart';
 import 'package:tsukena/features/transaction/entities/category_input.dart';
 
+/// 名前か絵文字が空、または既にあるカテゴリと同じ（422）。
+class InvalidCategoryException implements Exception {}
+
 class CategoryService {
   // 接続先はテストで差し替えられるよう引数でも受け取る。省略すると起動時に渡した値を使う
   CategoryService({this.baseUrl = ApiConfig.baseUrl});
@@ -31,6 +34,9 @@ class CategoryService {
       body: jsonEncode(categoryInput.toJson()),
     );
 
+    if (response.statusCode == 422) {
+      throw InvalidCategoryException();
+    }
     if (response.statusCode != 201) {
       throw Exception('カテゴリの登録に失敗しました');
     }

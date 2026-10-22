@@ -13,4 +13,5 @@ class Category:
 class CategoryInput:
     name: str
     emoji: str
-    sort_order: int
+    # 追加では省略すると末尾、変更では省略すると今の表示順のまま
+    sort_order: int | None = None

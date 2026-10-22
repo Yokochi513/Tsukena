@@ -3,9 +3,12 @@ import 'package:tsukena/features/gmail_link/repositories/gmail_link_repository.d
 import 'package:tsukena/features/import_failure/entities/import_failure.dart';
 import 'package:tsukena/features/import_failure/repositories/import_failure_repository.dart';
 import 'package:tsukena/features/import_failure/widgets/import_failure_list.dart';
+import 'package:tsukena/features/transaction/entities/category.dart';
+import 'package:tsukena/features/transaction/repositories/category_repository.dart';
+import 'package:tsukena/features/transaction/widgets/category_add_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// TODO: 予算の API とカテゴリの管理の画面ができたら、月の予算の変更とカテゴリの管理を足す（→ docs/design.md 5.1）
+// TODO: 予算の API ができたら月の予算の変更を、カテゴリの名前・絵文字・表示順の変更を足す（→ docs/design.md 5.1）
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -15,6 +18,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late Future<List<ImportFailure>> _failures;
+  late Future<List<Category>> _categories;
   bool _linking = false;
 
   @override
@@ -44,6 +48,42 @@ class _SettingsPageState extends State<SettingsPage> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
+              _sectionTitle('カテゴリ', textTheme),
+              FutureBuilder<List<Category>>(
+                future: _categories,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return const ListTile(title: Text('カテゴリの取得に失敗しました'));
+                  }
+                  return Column(
+                    children: [
+                      for (final category in snapshot.data ?? <Category>[])
+                        ListTile(
+                          leading: Text(
+                            category.emoji,
+                            style: textTheme.titleLarge,
+                          ),
+                          title: Text(category.name),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OutlinedButton.icon(
+                  onPressed: _addCategory,
+                  icon: const Icon(Icons.add),
+                  label: const Text('カテゴリを追加'),
+                ),
+              ),
+              const SizedBox(height: 24),
               _sectionTitle('Gmail 連携', textTheme),
               const ListTile(
                 subtitle: Text(
@@ -115,6 +155,16 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> _addCategory() async {
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (context) => const CategoryAddDialog(),
+    );
+    if (added != true) return;
+    _showMessage('カテゴリを追加しました');
+    _reload();
+  }
+
   Future<void> _retryImport(ImportFailure failure) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -160,6 +210,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _reload() {
     setState(() {
+      _categories = CategoryService().getCategories();
       _failures = ImportFailureService().getImportFailures();
     });
   }

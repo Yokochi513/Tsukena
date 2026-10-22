@@ -10,20 +10,19 @@ class DuplicateCategoryError(Exception):
 def insert_category(conn: sqlite3.Connection, category: CategoryInput) -> Category:
     try:
         with conn:
+            # 表示順を省略したときは、今ある最大値 + 1（末尾）にする（→ docs/api_list.md 2.4）
             cur = conn.execute(
-                "INSERT INTO categories (name, emoji, sort_order) VALUES (?, ?, ?)",
+                "INSERT INTO categories (name, emoji, sort_order) VALUES (?, ?,"
+                " COALESCE(?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories)))",
                 (category.name, category.emoji, category.sort_order),
             )
     except sqlite3.IntegrityError:
         # 空文字は API の入口で弾くため、ここで残る制約違反は名前か絵文字の重複
         raise DuplicateCategoryError from None
 
-    return Category(
-        id=cur.lastrowid,
-        name=category.name,
-        emoji=category.emoji,
-        sort_order=category.sort_order,
-    )
+    inserted = fetch_category(conn, cur.lastrowid or 0)
+    assert inserted is not None
+    return inserted
 
 
 def update_category(
@@ -40,7 +39,9 @@ def update_category(
         id=current.id,
         name=update.name,
         emoji=update.emoji,
-        sort_order=update.sort_order,
+        sort_order=(
+            update.sort_order if update.sort_order is not None else current.sort_order
+        ),
     )
 
     try:
