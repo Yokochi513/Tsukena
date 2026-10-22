@@ -1,6 +1,6 @@
 import sqlite3
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ...repositories.income_repository import (
     fetch_incomes,
@@ -8,15 +8,19 @@ from ...repositories.income_repository import (
     remove_income,
     update_income,
 )
-from ..dependencies import APP_ONLY, get_conn
+from ..dependencies import APP_ONLY, MONTH_PATTERN, get_conn
 from ..schemas import IncomeIn, IncomeOut
 
 router = APIRouter()
 
 
+# 収入の一覧は常に月を指定して開くため、month は省略できない（→ docs/api_list.md 2.3）
 @router.get("/incomes", response_model=list[IncomeOut], dependencies=[APP_ONLY])
-def get_incomes(conn: sqlite3.Connection = Depends(get_conn)):  # noqa: B008
-    return [IncomeOut.from_model(income) for income in fetch_incomes(conn)]
+def get_incomes(
+    month: str = Query(pattern=MONTH_PATTERN),
+    conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
+):
+    return [IncomeOut.from_model(income) for income in fetch_incomes(conn, month)]
 
 
 @router.post(

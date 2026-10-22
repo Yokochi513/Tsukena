@@ -1,32 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:tsukena/components/month_switcher/month_switcher.dart';
 import 'package:tsukena/features/month_summary/entities/monthly_summary.dart';
 import 'package:tsukena/features/month_summary/repositories/month_summary_repository.dart';
 import 'package:tsukena/features/month_summary/widgets/monthly_summary_view.dart';
 import 'package:tsukena/pages/settings_page.dart';
 
-// TODO: 支出・収入の一覧が月で絞り込めるようになったら、合計から各一覧へ移れるようにする（→ docs/design.md 5.1）
-/// 起動時の画面。月を切り替えて、その月の収支・予算の残り・カテゴリ別の内訳を見る
+/// 起動時の画面。月を切り替えて、その月の収支・予算の残り・カテゴリ別の内訳を見る。
+///
+/// 月はホームの画面が持ち、支出・収入の一覧と共有する。収入・支出の行を押すと、同じ月の一覧へ移る
 class MonthPage extends StatefulWidget {
-  const MonthPage({super.key});
+  const MonthPage({
+    super.key,
+    required this.month,
+    required this.onMonthChanged,
+    this.onOpenTransactions,
+    this.onOpenIncomes,
+  });
+
+  final DateTime month;
+  final ValueChanged<DateTime> onMonthChanged;
+  final VoidCallback? onOpenTransactions;
+  final VoidCallback? onOpenIncomes;
 
   @override
   State<MonthPage> createState() => _MonthPageState();
 }
 
 class _MonthPageState extends State<MonthPage> {
-  // 日は使わない。月を足し引きしやすいよう、常に1日にしておく
-  DateTime _month = _thisMonth();
   late Future<MonthlySummary> _summary;
-
-  static DateTime _thisMonth() {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month);
-  }
 
   @override
   initState() {
     super.initState();
     _summary = _fetch();
+  }
+
+  @override
+  void didUpdateWidget(MonthPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // build の途中で呼ばれるので setState は要らない
+    if (widget.month != oldWidget.month) _summary = _fetch();
   }
 
   @override
@@ -49,7 +62,10 @@ class _MonthPageState extends State<MonthPage> {
           child: ListView(
             padding: const EdgeInsets.only(bottom: 16),
             children: [
-              _monthSwitcher(context),
+              MonthSwitcher(
+                month: widget.month,
+                onChanged: widget.onMonthChanged,
+              ),
               FutureBuilder<MonthlySummary>(
                 future: _summary,
                 builder: (context, snapshot) {
@@ -66,7 +82,11 @@ class _MonthPageState extends State<MonthPage> {
                       child: Center(child: Text('月の集計の取得に失敗しました')),
                     );
                   }
-                  return MonthlySummaryView(summary: summary);
+                  return MonthlySummaryView(
+                    summary: summary,
+                    onTapIncome: widget.onOpenIncomes,
+                    onTapExpense: widget.onOpenTransactions,
+                  );
                 },
               ),
             ],
@@ -76,52 +96,6 @@ class _MonthPageState extends State<MonthPage> {
     );
   }
 
-  Widget _monthSwitcher(BuildContext context) {
-    final isThisMonth = _month == _thisMonth();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            tooltip: '前の月',
-            onPressed: () => _moveMonth(-1),
-          ),
-          Expanded(
-            child: Text(
-              '${_month.year}年${_month.month}月',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          // 来月以降もカードの引き落としを見るために開ける（→ docs/design.md 4.3）
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            tooltip: '次の月',
-            onPressed: () => _moveMonth(1),
-          ),
-          TextButton(
-            onPressed: isThisMonth ? null : () => _showMonth(_thisMonth()),
-            child: const Text('今月'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _moveMonth(int delta) {
-    // DateTime は 13月や 0月を、年をまたいだ月に直してくれる
-    _showMonth(DateTime(_month.year, _month.month + delta));
-  }
-
-  void _showMonth(DateTime month) {
-    setState(() {
-      _month = month;
-      _summary = _fetch();
-    });
-  }
-
   void _reload() {
     setState(() {
       _summary = _fetch();
@@ -129,8 +103,8 @@ class _MonthPageState extends State<MonthPage> {
   }
 
   Future<MonthlySummary> _fetch() {
-    final year = _month.year.toString().padLeft(4, '0');
-    final month = _month.month.toString().padLeft(2, '0');
-    return MonthSummaryService().getMonthlySummary('$year-$month');
+    return MonthSummaryService().getMonthlySummary(
+      formatYearMonth(widget.month),
+    );
   }
 }

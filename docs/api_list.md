@@ -495,7 +495,7 @@ bot の持ち主が DM で送ったメッセージを、bot がそのまま送�
 | `month_page`        | 1                                                                          |
 | `expense_list_page` | 2（`month`）、9。確認待ちのシートで 2（`status=pending`）、3（`category_id` と `memo`、または `memo` だけ） |
 | `expense_edit_page` | 3、4、9                                                                    |
-| `income_list_page`  | 5                                                                          |
+| `income_list_page`  | 5（`month`）                                                               |
 | `income_edit_page`  | 6、7、8                                                                    |
 | `settings_page`     | 9（件数だけ）、12、13、14（件数だけ）、15                                  |
 | `category_list_page` | 9、10、11                                                                 |

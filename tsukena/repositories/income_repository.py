@@ -71,8 +71,16 @@ def remove_income(conn: sqlite3.Connection, income_id: int) -> bool:
     return cur.rowcount > 0
 
 
-def fetch_incomes(conn: sqlite3.Connection) -> list[Income]:
-    rows = conn.execute("SELECT * FROM incomes").fetchall()
+def fetch_incomes(conn: sqlite3.Connection, month: str) -> list[Income]:
+    # month は YYYY-MM。日付は YYYY-MM-DD の文字列なので、月初〜31日の範囲で比べれば月の判定になり、インデックスも使える
+    rows = conn.execute(
+        """
+        SELECT * FROM incomes
+        WHERE received_date BETWEEN ? AND ?
+        ORDER BY received_date DESC, id DESC
+        """,
+        (f"{month}-01", f"{month}-31"),
+    ).fetchall()
     return [_row_to_income(r) for r in rows]
 
 

@@ -11,8 +11,11 @@ class IncomeService {
 
   final String baseUrl;
 
-  Future<List<Income>> getIncomes() async {
-    final response = await ApiHttp.get(Uri.parse('$baseUrl/incomes'));
+  // month は入金日の月（"YYYY-MM"）。省略できない（→ docs/api_list.md 2.3）
+  Future<List<Income>> getIncomes(String month) async {
+    final response = await ApiHttp.get(
+      Uri.parse('$baseUrl/incomes').replace(queryParameters: {'month': month}),
+    );
 
     if (response.statusCode != 200) {
       throw Exception('収入の取得に失敗しました');

@@ -3,9 +3,18 @@ import 'package:tsukena/features/month_summary/entities/monthly_summary.dart';
 
 /// 月の集計を、予算の残り・収支・カテゴリ別の内訳の順に並べる。画面の ListView の中に置くため、自分ではスクロールしない
 class MonthlySummaryView extends StatelessWidget {
-  const MonthlySummaryView({super.key, required this.summary});
+  const MonthlySummaryView({
+    super.key,
+    required this.summary,
+    this.onTapIncome,
+    this.onTapExpense,
+  });
 
   final MonthlySummary summary;
+
+  /// 収入・支出の行を押したときに呼ぶ。null なら押せない
+  final VoidCallback? onTapIncome;
+  final VoidCallback? onTapExpense;
 
   @override
   Widget build(BuildContext context) {
@@ -71,14 +80,30 @@ class MonthlySummaryView extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
-    Widget row(String label, String value, {Color? color}) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(child: Text(label)),
-            Text(value, style: textTheme.titleMedium?.copyWith(color: color)),
-          ],
+    Widget row(
+      String label,
+      String value, {
+      Color? color,
+      VoidCallback? onTap,
+    }) {
+      return InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(child: Text(label)),
+              Text(value, style: textTheme.titleMedium?.copyWith(color: color)),
+              // 押せる行には「›」を付け、押せない収支の行も金額の位置を揃える
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(
+                  Icons.chevron_right,
+                  color: onTap == null ? Colors.transparent : null,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -86,13 +111,19 @@ class MonthlySummaryView extends StatelessWidget {
     final balance = summary.balance;
     return Card(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      // 行を押したときの波紋をカードの角で切る
+      clipBehavior: Clip.antiAlias,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           children: [
-            row('収入', '¥${_formatAmount(summary.incomeTotal)}'),
-            row('支出', '¥${_formatAmount(summary.total)}'),
-            const Divider(),
+            row(
+              '収入',
+              '¥${_formatAmount(summary.incomeTotal)}',
+              onTap: onTapIncome,
+            ),
+            row('支出', '¥${_formatAmount(summary.total)}', onTap: onTapExpense),
+            const Divider(indent: 16, endIndent: 16),
             row(
               '収支',
               '${balance < 0 ? '−' : '+'}¥${_formatAmount(balance.abs())}',
