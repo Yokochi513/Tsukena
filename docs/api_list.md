@@ -124,6 +124,7 @@ model の `Transaction` から、照合キー（`merchant_key`）と重複排除
 | 18 | DELETE   | `/import-failures/{message_id}` | 取り込めなかったメールの記録を消す   | `import_failure` |
 | 19 | POST     | `/import-failures/{message_id}/retry` | 取り込めなかったメールをその場で取り込み直す | `import_failure` |
 | 20 | GET      | `/`                           | サーバーの説明（HTML）                 | なし             |
+| 21 | GET      | `/oauth/google/status`        | Gmail 連携の状態                       | `gmail_link`     |
 
 スマホアプリから支出の記録を追加するエンドポイントは作らない。現金は Discord から、カード・QR決済は自動で入るため、アプリから追加できると二重登録が起きうる（→ [design.md 4.3](./design.md#43-スマホアプリ修正確認待ち振り返り収入)）。
 Discord から送られた現金の記録（17）は、bot 用のトークンでしか呼べないエンドポイントとして持つ（→ [1.5](#15-トークンの種類)）。
@@ -397,6 +398,24 @@ sequenceDiagram
 | ---------- | ---- |
 | `503`      | 連携の準備ができていない。`TSUKENA_GOOGLE_REDIRECT_URI` が空か、`creds/credentials.json` が無い |
 
+#### GET `/oauth/google/status`
+
+Gmail と連携できているかを返す。設定の画面に出す。
+
+レスポンス `200`
+
+```json
+{ "linked": true }
+```
+
+- 定期の取り込みと同じく、保存した認証情報を読めるかで確かめる。アクセストークンの期限が切れていれば、その場で更新して保存し直す。
+- 認証情報が無い、または更新できなければ `linked` は `false` とする。
+- Google 側で連携を取り消しても、アクセストークンの期限（1時間）が切れるまでは `true` を返す。
+
+| ステータス | 意味 |
+| ---------- | ---- |
+| `502`      | 認証情報を更新するために Google へつなげなかった |
+
 #### GET `/oauth/google/callback`
 
 | 引数    | 場所   | 必須 | 内容                                   |
@@ -501,7 +520,7 @@ bot の持ち主が DM で送ったメッセージを、bot がそのまま送�
 | `expense_search_page` | 2（`q` だけ）、9                                                         |
 | `income_list_page`  | 5（`month`）                                                               |
 | `income_edit_page`  | 6、7、8                                                                    |
-| `settings_page`     | 9（件数だけ）、12、13、14（件数だけ）、15                                  |
+| `settings_page`     | 9（件数だけ）、12、13、14（件数だけ）、15、21                              |
 | `category_list_page` | 9、10、11                                                                 |
 | `import_failure_page` | 14、19                                                                   |
 

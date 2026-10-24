@@ -2,13 +2,14 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from google.auth.exceptions import TransportError
 
 from ...mail import gmail_client
 from ...mail.gmail_client import GmailAuthError
 from ..dependencies import APP_ONLY
 from ..html import html_page
 from ..oauth_state import OAuthStateStore
-from ..schemas import GoogleAuthStartOut
+from ..schemas import GoogleAuthStartOut, GoogleAuthStatusOut
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,23 @@ def start_google_auth(request: Request):
     oauth_states: OAuthStateStore = request.app.state.oauth_states
     oauth_states.put(state, code_verifier)
     return GoogleAuthStartOut(authorization_url=url)
+
+
+# 取り込みと同じく認証情報を読めるか（期限切れなら更新できるか）で確かめる（→ docs/api_list.md 2.7）
+@router.get(
+    "/oauth/google/status",
+    response_model=GoogleAuthStatusOut,
+    dependencies=[APP_ONLY],
+)
+def get_google_auth_status():
+    try:
+        gmail_client.load_credentials()
+    except GmailAuthError:
+        return GoogleAuthStatusOut(linked=False)
+    except TransportError:
+        # 更新のために Google へつなげなかった。切れているかどうかは分からない
+        raise HTTPException(status_code=502, detail="Could not reach Google") from None
+    return GoogleAuthStatusOut(linked=True)
 
 
 # Google からのリダイレクトでブラウザが呼ぶため、トークンを求めず state で確かめる（→ docs/api_list.md 2.7）

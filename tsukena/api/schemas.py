@@ -216,6 +216,10 @@ class GoogleAuthStartOut(BaseModel):
     authorization_url: str
 
 
+class GoogleAuthStatusOut(BaseModel):
+    linked: bool
+
+
 class ImportFailureOut(BaseModel):
     # 本文は持たないので返さない（→ docs/api_list.md 2.6）
     message_id: str

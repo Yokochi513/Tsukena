@@ -39,6 +39,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late Future<Budget> _budget;
   late Future<List<Category>> _categories;
   late Future<List<ImportFailure>> _failures;
+  late Future<bool> _gmailLinked;
   bool _linking = false;
 
   @override
@@ -102,17 +103,22 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const Divider(height: 32),
               _sectionTitle('メールの取り込み', textTheme),
-              ListTile(
-                leading: const Icon(Icons.mail_outline),
-                title: const Text('Gmail と連携する'),
-                subtitle: const Text('連携が切れたと Discord に届いたときも、ここからやり直します'),
-                trailing: _linking
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.chevron_right),
-                onTap: _linking ? null : _startGmailLink,
+              FutureBuilder<bool>(
+                future: _gmailLinked,
+                builder: (context, snapshot) {
+                  return ListTile(
+                    leading: const Icon(Icons.mail_outline),
+                    title: const Text('Gmail と連携する'),
+                    subtitle: const Text('連携が切れたと Discord に届いたときも、ここからやり直します'),
+                    trailing: _linking
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : _trailing(snapshot, _gmailLinkState),
+                    onTap: _linking ? null : _startGmailLink,
+                  );
+                },
               ),
               FutureBuilder<List<ImportFailure>>(
                 future: _failures,
@@ -179,6 +185,24 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // 切れていると取り込みが止まるので、連携していなければ目立たせる
+  Widget _gmailLinkState(bool linked) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = linked ? colorScheme.primary : colorScheme.error;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          linked ? Icons.check_circle_outline : Icons.error_outline,
+          size: 18,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Text(linked ? '連携済み' : '未連携', style: TextStyle(color: color)),
+      ],
+    );
+  }
+
   Future<void> _open(Widget page) async {
     await Navigator.of(
       context,
@@ -233,6 +257,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _budget = BudgetService().getBudget();
       _categories = CategoryService().getCategories();
       _failures = ImportFailureService().getImportFailures();
+      _gmailLinked = GmailLinkService().getLinked();
     });
   }
 }
