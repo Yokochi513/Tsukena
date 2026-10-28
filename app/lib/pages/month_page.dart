@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/components/month_switcher/month_switcher.dart';
+import 'package:tsukena/core/save_file/save_file.dart';
+import 'package:tsukena/features/income/repositories/income_repository.dart';
+import 'package:tsukena/features/month_export/month_csv.dart';
 import 'package:tsukena/features/month_summary/entities/monthly_summary.dart';
 import 'package:tsukena/features/month_summary/repositories/month_summary_repository.dart';
 import 'package:tsukena/features/month_summary/widgets/monthly_summary_view.dart';
 import 'package:tsukena/features/transaction/entities/transaction.dart';
+import 'package:tsukena/features/transaction/repositories/category_repository.dart';
 import 'package:tsukena/features/transaction/repositories/transaction_repository.dart';
 import 'package:tsukena/features/transaction/widgets/transaction_brief_sheet.dart';
 import 'package:tsukena/pages/settings_page.dart';
@@ -32,6 +36,9 @@ class MonthPage extends StatefulWidget {
 class _MonthPageState extends State<MonthPage> {
   late Future<MonthlySummary> _summary;
 
+  // CSV を作っている間は、ボタンを押せなくする
+  bool _exporting = false;
+
   @override
   initState() {
     super.initState();
@@ -51,6 +58,11 @@ class _MonthPageState extends State<MonthPage> {
       appBar: AppBar(
         title: const Text('月の収支'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: '明細を CSV で保存',
+            onPressed: _exporting ? null : _exportCsv,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: '読み込み',
@@ -132,6 +144,33 @@ class _MonthPageState extends State<MonthPage> {
       return t.status == TransactionStatus.confirmed &&
           t.categoryId == categoryId;
     }).toList();
+  }
+
+  /// 表示している月の支出と収入を、CSV にして保存する
+  Future<void> _exportCsv() async {
+    setState(() => _exporting = true);
+    final month = formatYearMonth(widget.month);
+    try {
+      final (transactions, incomes, categories) = await (
+        TransactionService().getTransactions(month: month),
+        IncomeService().getIncomes(month),
+        CategoryService().getCategories(),
+      ).wait;
+      final csv = buildMonthCsv(
+        month: widget.month,
+        transactions: transactions,
+        incomes: incomes,
+        categories: categories,
+      );
+      await saveTextFile('tsukena-$month.csv', csv, 'text/csv');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('CSV の保存に失敗しました')));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   void _reload() {
