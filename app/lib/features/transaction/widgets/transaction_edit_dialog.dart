@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:tsukena/components/date_picker/date_picker.dart';
 import 'package:tsukena/features/transaction/entities/category.dart';
+import 'package:tsukena/features/transaction/entities/charge.dart';
 import 'package:tsukena/features/transaction/entities/transaction.dart';
 import 'package:tsukena/features/transaction/entities/transaction_update.dart';
 import 'package:tsukena/features/transaction/repositories/transaction_repository.dart';
+import 'package:tsukena/features/transaction/widgets/payment_plan_dialog.dart';
 
 class TransactionEditDialog extends StatefulWidget {
   const TransactionEditDialog({
@@ -27,6 +29,9 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
   late String _memo;
   int? _categoryId;
   bool _saving = false;
+  // 支払い方法はこのダイアログの保存とは別に、その場でサーバーへ送る。変えたら、キャンセルでも一覧を読み直させる
+  late Transaction _planned = widget.transaction;
+  bool _planChanged = false;
 
   @override
   void initState() {
@@ -64,7 +69,10 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
               ),
               const SizedBox(height: 16),
               DatePickerField(
-                label: '支払日',
+                // 1回払い以外では、引き落としの予定の起点になる
+                label: _planned.paymentPlan == PaymentPlan.lump
+                    ? '支払日'
+                    : '支払日（1回払いのとき）',
                 value: _paidDate,
                 onChanged: (date) => setState(() => _paidDate = date),
               ),
@@ -111,13 +119,23 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
                 onChanged: (value) => setState(() => _categoryId = value),
               ),
               const SizedBox(height: 16),
-              // 修正できない項目は参考として表示だけする
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '支払い手段: ${transaction.paymentMethod}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+              // 支払い手段は修正できないので表示だけする。カードの支払い方法は別のダイアログで変える
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '支払い手段: ${transaction.paymentMethod}・'
+                      '${_planned.planLabelIn(null) ?? _planned.paymentPlan.label}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  // 現金は bot から記録するので、カードやQR決済で取り込んだ支出だけに出す
+                  if (transaction.source == TransactionSource.gmail)
+                    TextButton(
+                      onPressed: _saving ? null : _openPaymentPlan,
+                      child: const Text('支払い方法を変える'),
+                    ),
+                ],
               ),
             ],
           ),
@@ -132,7 +150,7 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
               child: const Text('保存'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(context).pop(_planChanged),
               child: const Text('キャンセル'),
             ),
             TextButton(
@@ -186,6 +204,18 @@ class _TransactionEditDialogState extends State<TransactionEditDialog> {
     }
     if (!mounted) return;
     Navigator.of(context).pop(true);
+  }
+
+  Future<void> _openPaymentPlan() async {
+    final updated = await showDialog<Transaction>(
+      context: context,
+      builder: (_) => PaymentPlanDialog(transaction: _planned),
+    );
+    if (updated == null || !mounted) return;
+    setState(() {
+      _planChanged = true;
+      _planned = updated;
+    });
   }
 
   void _showError(String message) {

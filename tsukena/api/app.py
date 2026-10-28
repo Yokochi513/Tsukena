@@ -13,6 +13,7 @@ from .routers import (
     incomes,
     index,
     oauth_google,
+    payment_plans,
     summary,
     transactions,
 )
@@ -47,6 +48,7 @@ def create_app(
         index,
         summary,
         transactions,
+        payment_plans,
         incomes,
         categories,
         budget,

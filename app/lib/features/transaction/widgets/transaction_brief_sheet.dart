@@ -57,7 +57,11 @@ class _TransactionBriefSheetState extends State<TransactionBriefSheet> {
           }
 
           final items = snapshot.data ?? [];
-          final total = items.fold(0, (sum, t) => sum + t.amount);
+          // 月の集計と同じく、分割などはその月の引き落とし額で数える
+          final total = items.fold(
+            0,
+            (sum, t) => sum + t.amountIn(widget.month),
+          );
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -86,23 +90,24 @@ class _TransactionBriefSheetState extends State<TransactionBriefSheet> {
                       const Divider(height: 1, indent: 16, endIndent: 16),
                   itemBuilder: (context, index) {
                     final t = items[index];
-                    // 月は支払日で数えるので、左には支払日を出す。カードなどで利用日が違えば添える
-                    final occurred =
-                        DateUtils.isSameDay(t.occurredDate, t.paidDate)
+                    // 月は支払日で数えるので、左にはこの月の引き落とし日を出す。カードなどで利用日が違えば添える
+                    final paid = t.chargesIn(widget.month).first.paidDate;
+                    final occurred = DateUtils.isSameDay(t.occurredDate, paid)
                         ? null
                         : '利用 ${_formatDate(t.occurredDate)}';
                     final subtitle = [
                       ?occurred,
+                      ?t.planLabelIn(widget.month),
                       if (t.memo.isNotEmpty) t.memo,
                     ].join('\n');
                     return ListTile(
                       dense: true,
                       onTap: () => _edit(items, index),
-                      leading: Text(_formatDate(t.paidDate)),
+                      leading: Text(_formatDate(paid)),
                       title: Text(t.merchant.isEmpty ? '(店名無し)' : t.merchant),
                       subtitle: subtitle.isEmpty ? null : Text(subtitle),
                       trailing: Text(
-                        '¥${_formatAmount(t.amount)}',
+                        '¥${_formatAmount(t.amountIn(widget.month))}',
                         style: textTheme.bodyLarge,
                       ),
                     );
@@ -125,9 +130,8 @@ class _TransactionBriefSheetState extends State<TransactionBriefSheet> {
     );
     if (updated == null || !mounted) return;
 
-    final paid = updated.paidDate;
-    final stillInMonth =
-        paid.year == widget.month.year && paid.month == widget.month.month;
+    // 分割などは、この月に引き落としの回が残っているかで決める
+    final stillInMonth = updated.chargesIn(widget.month).isNotEmpty;
     setState(() {
       if (stillInMonth) {
         items[index] = updated;
@@ -135,7 +139,7 @@ class _TransactionBriefSheetState extends State<TransactionBriefSheet> {
         items.removeAt(index);
       }
     });
-    if (!DateUtils.isSameDay(paid, original.paidDate)) {
+    if (!DateUtils.isSameDay(updated.paidDate, original.paidDate)) {
       widget.onPaidDateChanged?.call();
     }
   }

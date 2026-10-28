@@ -52,11 +52,14 @@ def _to_payment_rule(name: str, values: dict[str, Any]) -> PaymentRule:
         closing_day=values.get("closing_day"),
         withdrawal_day=values.get("withdrawal_day"),
         withdrawal_month_offset=values.get("withdrawal_month_offset"),
+        fee_rate=values.get("fee_rate"),
+        revolving_principal=values.get("revolving_principal"),
     )
     card_values = (rule.closing_day, rule.withdrawal_day, rule.withdrawal_month_offset)
+    plan_values = (rule.fee_rate, rule.revolving_principal)
     if timing == PaymentTiming.IMMEDIATE:
-        if any(v is not None for v in card_values):
-            raise ValueError(f"{name}: 即時の支払い手段に締め日・引き落とし日は書けません")
+        if any(v is not None for v in card_values + plan_values):
+            raise ValueError(f"{name}: 即時の支払い手段に締め日・引き落とし日・手数料は書けません")
         return rule
 
     if any(v is None for v in card_values):
@@ -67,6 +70,13 @@ def _to_payment_rule(name: str, values: dict[str, Any]) -> PaymentRule:
         raise ValueError(f"{name}: 締め日・引き落とし日は 1〜31 で書いてください")
     if values["withdrawal_month_offset"] < 1:
         raise ValueError(f"{name}: withdrawal_month_offset は 1 以上で書いてください")
+    if rule.fee_rate is not None and not 0 < rule.fee_rate < 100:
+        raise ValueError(f"{name}: fee_rate は 0 より大きく 100 より小さい年率（%）で書いてください")
+    if rule.revolving_principal is not None:
+        if rule.fee_rate is None:
+            raise ValueError(f"{name}: revolving_principal を書くときは fee_rate も書いてください")
+        if rule.revolving_principal < 1:
+            raise ValueError(f"{name}: revolving_principal は 1 以上で書いてください")
     return rule
 
 

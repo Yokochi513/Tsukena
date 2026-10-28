@@ -25,17 +25,43 @@ CREATE TABLE transactions (
     payment_method TEXT    NOT NULL CHECK (payment_method <> ''),                      -- 現金、楽天カード など
     source         TEXT    NOT NULL CHECK (source IN ('gmail', 'discord')),
     source_ref     TEXT    NOT NULL UNIQUE,                                            -- 重複排除キー（gmail:{message_id}:{連番} / discord:{message_id}）
+    payment_plan   TEXT    NOT NULL DEFAULT 'lump'
+                           CHECK (payment_plan IN ('lump', 'skip', 'installment', 'revolving')), -- 支払い方法（→ docs/adr/0011）
+    plan_count     INTEGER          CHECK (plan_count IS NULL OR plan_count >= 1),     -- skip なら繰り延べる月数、installment なら回数。ほかは NULL
     created_at     TEXT    NOT NULL,                                                   -- 作成日時（JST、タイムゾーン付き）
     updated_at     TEXT    NOT NULL,                                                   -- 更新日時
     CHECK (paid_date >= occurred_date),
     CHECK (status <> 'confirmed' OR category_id IS NOT NULL),
     CHECK (source_ref LIKE source || ':%'),
-    CHECK (updated_at >= created_at)
+    CHECK (updated_at >= created_at),
+    CHECK ((payment_plan IN ('skip', 'installment')) = (plan_count IS NOT NULL))
 );
 
 CREATE INDEX idx_transactions_paid_date     ON transactions (paid_date);
 CREATE INDEX idx_transactions_occurred_date ON transactions (occurred_date);
 CREATE INDEX idx_transactions_status        ON transactions (status);
+
+-- 1回払い以外の支出の、回ごとの引き落とし（→ docs/adr/0011）。
+-- 1回払いの支出は持たず、transactions の paid_date と amount がそのまま1回の引き落としになる
+CREATE TABLE charges (
+    transaction_id INTEGER NOT NULL REFERENCES transactions (id),
+    seq            INTEGER NOT NULL CHECK (seq >= 1),                         -- 何回目か
+    paid_date      TEXT    NOT NULL CHECK (paid_date IS date(paid_date)),     -- 引き落とし日 YYYY-MM-DD（JST）
+    principal      INTEGER NOT NULL CHECK (principal >= 0),                   -- 元金（円）
+    fee            INTEGER NOT NULL CHECK (fee >= 0),                         -- 手数料（円）
+    fee_edited     INTEGER NOT NULL DEFAULT 0 CHECK (fee_edited IN (0, 1)),   -- 手数料をアプリで直したか（リボは revolving_fees で持つので常に 0）
+    PRIMARY KEY (transaction_id, seq)
+);
+
+CREATE INDEX idx_charges_paid_date ON charges (paid_date);
+
+-- リボ払いの、月ごとに手で直した手数料。リボの手数料は残高全体にかかるため、支出ごとではなく支払い手段と月で持つ
+CREATE TABLE revolving_fees (
+    payment_method TEXT    NOT NULL CHECK (payment_method <> ''),
+    month          TEXT    NOT NULL CHECK (month IS strftime('%Y-%m', month || '-01')),  -- 引き落としの月 YYYY-MM
+    fee            INTEGER NOT NULL CHECK (fee >= 0),                                    -- その月のリボ全体の手数料（円）
+    PRIMARY KEY (payment_method, month)
+);
 
 -- 収入（→ docs/adr/0005-income-manual-entry-from-app.md）
 CREATE TABLE incomes (

@@ -3,6 +3,8 @@ import datetime
 from pydantic import AwareDatetime, BaseModel, Field, field_serializer, field_validator
 
 from ..model.category_model import Category, CategoryInput
+from ..model.charge_model import Charge, RevolvingMonth
+from ..model.enum.payment_plan import PaymentPlan
 from ..model.enum.record_outcome import RecordOutcome
 from ..model.enum.source import Source
 from ..model.enum.status import Status
@@ -11,6 +13,26 @@ from ..model.income_model import Income, IncomeInput
 from ..model.record_model import RecordResult
 from ..model.summary_model import CategoryTotal, MonthlySummary
 from ..model.transaction_model import Transaction, TransactionUpdate
+
+
+class ChargeOut(BaseModel):
+    seq: int
+    paid_date: datetime.date
+    principal: int
+    fee: int
+    amount: int  # 元金と手数料の合計。その回に引き落とされる額
+    fee_edited: bool
+
+    @classmethod
+    def from_model(cls, c: Charge) -> "ChargeOut":
+        return cls(
+            seq=c.seq,
+            paid_date=c.paid_date,
+            principal=c.principal,
+            fee=c.fee,
+            amount=c.amount,
+            fee_edited=c.fee_edited,
+        )
 
 
 class TransactionOut(BaseModel):
@@ -28,6 +50,10 @@ class TransactionOut(BaseModel):
     source: Source
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    payment_plan: PaymentPlan
+    plan_count: int | None
+    # 引き落としの予定。1回払いでも、支払日に金額の全部を払う1回分を返す（→ docs/adr/0011）
+    charges: list[ChargeOut]
 
     @field_serializer("occurred_time")
     def _serialize_occurred_time(self, t: datetime.time | None) -> str | None:
@@ -50,6 +76,42 @@ class TransactionOut(BaseModel):
             source=t.source,
             created_at=t.created_at,
             updated_at=t.updated_at,
+            payment_plan=t.payment_plan,
+            plan_count=t.plan_count,
+            charges=[ChargeOut.from_model(c) for c in t.effective_charges()],
+        )
+
+
+class PaymentPlanIn(BaseModel):
+    plan: PaymentPlan
+    # skip なら繰り延べる月数、installment なら回数。ほかでは無視する
+    count: int | None = None
+
+
+class FeeIn(BaseModel):
+    # null で、計算した手数料に戻す。省略は許さない（戻すつもりが無いのに戻らないよう）
+    fee: int | None = Field(ge=0)
+
+
+class RevolvingMonthOut(BaseModel):
+    month: str
+    paid_date: datetime.date
+    principal: int
+    fee: int
+    amount: int
+    fee_edited: bool
+    balance: int  # 引き落としのあとに残る元金
+
+    @classmethod
+    def from_model(cls, m: RevolvingMonth) -> "RevolvingMonthOut":
+        return cls(
+            month=m.month,
+            paid_date=m.paid_date,
+            principal=m.principal,
+            fee=m.fee,
+            amount=m.principal + m.fee,
+            fee_edited=m.fee_edited,
+            balance=m.balance,
         )
 
 

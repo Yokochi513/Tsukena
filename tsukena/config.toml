@@ -10,6 +10,9 @@ origins = ["https://yokochi513.github.io"]
 # 記録に使う支払い手段は、すべてここにルールが無ければならない
 #   timing = "immediate" … 利用日に支払う
 #   timing = "card"      … closing_day で締め、withdrawal_month_offset か月後の withdrawal_day に引き落とす（31 は月末）
+# カードには、支払い方法を変えるための値も書ける（→ docs/adr/0011）。書かなければ、その支払い方法には変えられない
+#   fee_rate            … スキップ・分割・リボ払いの手数料の実質年率（%）
+#   revolving_principal … リボ払いの毎月の元金（定額コースの額、円）
 [payment_methods."現金"]
 timing = "immediate"
 
@@ -21,3 +24,7 @@ timing = "card"
 closing_day = 15
 withdrawal_day = 10
 withdrawal_month_offset = 1
+# 2026年10月1日の利用分から 18.00%（それより前の利用分は 15.00% のカードがある）
+fee_rate = 18.0
+# MyJCB で設定している「お支払いコース」の元金に合わせる
+revolving_principal = 10000

@@ -1,6 +1,8 @@
 import sqlite3
 from pathlib import Path
 
+SQL_PATH = Path(__file__).resolve().parents[2] / "sql" / "create_tables.sql"
+
 # 書き込みが重なったときに、ロックが外れるのを待つ時間（ミリ秒）
 BUSY_TIMEOUT_MS = 5000
 
@@ -37,6 +39,50 @@ def migrate(conn: sqlite3.Connection) -> None:
             conn.execute(
                 "ALTER TABLE transactions ADD COLUMN memo TEXT NOT NULL DEFAULT ''"
             )
+    if "payment_plan" not in _columns(conn, "transactions"):
+        # 既にある記録はすべて1回払いにする。ALTER TABLE では表の CHECK（plan_count との組み合わせ）は足せない
+        with conn:
+            conn.execute(
+                "ALTER TABLE transactions ADD COLUMN payment_plan TEXT NOT NULL DEFAULT 'lump'"
+                " CHECK (payment_plan IN ('lump', 'skip', 'installment', 'revolving'))"
+            )
+            conn.execute(
+                "ALTER TABLE transactions ADD COLUMN plan_count INTEGER"
+                " CHECK (plan_count IS NULL OR plan_count >= 1)"
+            )
+    _create_missing_tables(conn, {"charges", "revolving_fees"})
+
+
+def _create_missing_tables(conn: sqlite3.Connection, names: set[str]) -> None:
+    """create_tables.sql の文のうち、names のテーブル（と、そのインデックス）でまだ無いものだけを作る"""
+    existing = {
+        row["name"]
+        for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    }
+    missing = names - existing
+    if not missing:
+        return
+    schema = (SQL_PATH).read_text(encoding="utf-8")
+    with conn:
+        for statement in _statements(schema):
+            target = _statement_table(statement)
+            if target in missing:
+                conn.execute(statement)
+
+
+def _statements(schema: str) -> list[str]:
+    # コメントの行を落としてから ; で区切る。create_tables.sql の文字列の中に ; は無い
+    lines = [line.split("--", 1)[0] for line in schema.splitlines()]
+    return [s.strip() for s in "\n".join(lines).split(";") if s.strip()]
+
+
+def _statement_table(statement: str) -> str | None:
+    words = statement.split()
+    if words[:2] == ["CREATE", "TABLE"]:
+        return words[2]
+    if words[:2] == ["CREATE", "INDEX"] and "ON" in words:
+        return words[words.index("ON") + 1]
+    return None
 
 
 def _columns(conn: sqlite3.Connection, table: str) -> set[str]:

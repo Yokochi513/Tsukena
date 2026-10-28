@@ -1,10 +1,13 @@
+import dataclasses
 import datetime
 import sqlite3
 
+from ..model.enum.payment_plan import PaymentPlan
 from ..model.enum.source import Source
 from ..model.enum.status import Status
 from ..model.transaction_model import Transaction, TransactionInput
 from ..normalize import normalize
+from .charge_repository import fetch_charges
 
 
 def fetch_transactions(
@@ -17,9 +20,15 @@ def fetch_transactions(
     conditions: list[str] = []
     params: list[str] = []
     if month is not None:
-        # month は YYYY-MM。日付は YYYY-MM-DD の文字列なので、月初〜31日の範囲で比べれば月の判定になり、インデックスも使える
-        conditions.append("paid_date BETWEEN ? AND ?")
-        params += [f"{month}-01", f"{month}-31"]
+        # month は YYYY-MM。日付は YYYY-MM-DD の文字列なので、月初〜31日の範囲で比べれば月の判定になり、インデックスも使える。
+        # 1回払いは支払日で、ほかの支払い方法はその月に引き落としがあるかで決める（→ docs/adr/0011）
+        conditions.append(
+            """(
+                (payment_plan = 'lump' AND paid_date BETWEEN ? AND ?)
+                OR id IN (SELECT transaction_id FROM charges WHERE paid_date BETWEEN ? AND ?)
+            )"""
+        )
+        params += [f"{month}-01", f"{month}-31"] * 2
     if status is not None:
         conditions.append("status = ?")
         params.append(status.value)
@@ -49,7 +58,7 @@ def fetch_transactions(
         """,
         params,
     ).fetchall()
-    return [_row_to_transaction(r) for r in rows]
+    return _with_charges(conn, [_row_to_transaction(r) for r in rows])
 
 
 def fetch_transaction(
@@ -58,7 +67,9 @@ def fetch_transaction(
     row = conn.execute(
         "SELECT * FROM transactions WHERE id = ?", (transaction_id,)
     ).fetchone()
-    return _row_to_transaction(row) if row is not None else None
+    if row is None:
+        return None
+    return _with_charges(conn, [_row_to_transaction(row)])[0]
 
 
 def insert_transaction(
@@ -138,7 +149,8 @@ def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
         """
         UPDATE transactions
         SET occurred_date = ?, paid_date = ?, amount = ?, merchant = ?,
-            merchant_key = ?, memo = ?, category_id = ?, status = ?, updated_at = ?
+            merchant_key = ?, memo = ?, category_id = ?, status = ?,
+            payment_plan = ?, plan_count = ?, updated_at = ?
         WHERE id = ?
         """,
         (
@@ -150,6 +162,8 @@ def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
             t.memo,
             t.category_id,
             t.status.value,
+            t.payment_plan.value,
+            t.plan_count,
             t.updated_at.isoformat(),
             t.id,
         ),
@@ -157,8 +171,10 @@ def update_transaction(conn: sqlite3.Connection, t: Transaction) -> None:
 
 
 def remove_transaction(conn: sqlite3.Connection, transaction_id: int) -> bool:
-    # 重複排除キーを残し、同じメッセージやメールから記録が復活しないようにする（→ docs/api_list.md 2.2）
+    # 重複排除キーを残し、同じメッセージやメールから記録が復活しないようにする（→ docs/api_list.md 2.2）。
+    # リボ払いの支出を消したときの、残りのリボの引き落としの計算し直しは呼び出す側が行う
     with conn:
+        conn.execute("DELETE FROM charges WHERE transaction_id = ?", (transaction_id,))
         conn.execute(
             """
             INSERT OR IGNORE INTO deleted_refs (source_ref)
@@ -188,4 +204,17 @@ def _row_to_transaction(row: sqlite3.Row) -> Transaction:
         source_ref=row["source_ref"],
         created_at=datetime.datetime.fromisoformat(row["created_at"]),
         updated_at=datetime.datetime.fromisoformat(row["updated_at"]),
+        payment_plan=PaymentPlan(row["payment_plan"]),
+        plan_count=row["plan_count"],
     )
+
+
+def _with_charges(
+    conn: sqlite3.Connection, transactions: list[Transaction]
+) -> list[Transaction]:
+    ids = [t.id for t in transactions if t.payment_plan != PaymentPlan.LUMP]
+    charges = fetch_charges(conn, ids)
+    return [
+        dataclasses.replace(t, charges=charges[t.id]) if t.id in charges else t
+        for t in transactions
+    ]

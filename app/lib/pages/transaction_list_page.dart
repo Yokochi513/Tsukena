@@ -96,6 +96,7 @@ class _TransactionListPageState extends State<TransactionListPage> {
                       child: TransactionList(
                         transactions: transactions,
                         categories: categoryMap,
+                        month: widget.month,
                         onTap: (transaction) =>
                             _openEdit(transaction, categoryMap),
                       ),

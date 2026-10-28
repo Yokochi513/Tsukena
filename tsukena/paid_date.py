@@ -29,7 +29,28 @@ def calculate_paid_date(
         year, month = _add_months(year, month, 1)
 
     year, month = _add_months(year, month, rule.withdrawal_month_offset)
+    return withdrawal_date(year, month, rule)
+
+
+def withdrawal_date(year: int, month: int, rule: PaymentRule) -> datetime.date:
+    """カードの、その月の引き落とし日"""
+    assert rule.withdrawal_day is not None
     return datetime.date(year, month, _day_in_month(year, month, rule.withdrawal_day))
+
+
+def closing_date_for(paid_date: datetime.date, rule: PaymentRule) -> datetime.date:
+    """カードの、paid_date の月に引き落とす分の締め日"""
+    assert rule.closing_day is not None
+    assert rule.withdrawal_month_offset is not None
+    year, month = _add_months(
+        paid_date.year, paid_date.month, -rule.withdrawal_month_offset
+    )
+    return datetime.date(year, month, _day_in_month(year, month, rule.closing_day))
+
+
+def add_months(date: datetime.date, months: int) -> tuple[int, int]:
+    """date の月から months か月後の（年, 月）"""
+    return _add_months(date.year, date.month, months)
 
 
 def _day_in_month(year: int, month: int, day: int) -> int:

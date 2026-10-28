@@ -10,18 +10,29 @@ def fetch_monthly_summary(conn: sqlite3.Connection, month: str) -> MonthlySummar
     # 日付は YYYY-MM-DD の文字列なので、月初〜31日の範囲で比べれば月の判定になり、インデックスも使える
     first, last = f"{month}-01", f"{month}-31"
 
-    # 確認待ちの記録は、カテゴリが付いていても未分類の1件にまとめる（→ docs/module/model_design.md の CategoryTotal）
+    # 確認待ちの記録は、カテゴリが付いていても未分類の1件にまとめる（→ docs/module/model_design.md の CategoryTotal）。
+    # 1回払いは支払日に金額の全部を、ほかの支払い方法はその月の引き落とし（元金と手数料）を数える。
+    # 手数料も元の支出のカテゴリに入れる（→ docs/adr/0011）
     rows = conn.execute(
         """
-        SELECT c.id, c.name, c.emoji, c.sort_order, SUM(t.amount) AS amount
-        FROM transactions t
+        WITH charged AS (
+            SELECT id AS transaction_id, amount
+            FROM transactions
+            WHERE payment_plan = 'lump' AND paid_date BETWEEN ? AND ?
+            UNION ALL
+            SELECT transaction_id, principal + fee
+            FROM charges
+            WHERE paid_date BETWEEN ? AND ?
+        )
+        SELECT c.id, c.name, c.emoji, c.sort_order, SUM(ch.amount) AS amount
+        FROM charged ch
+        JOIN transactions t ON t.id = ch.transaction_id
         LEFT JOIN categories c
           ON t.status = 'confirmed' AND c.id = t.category_id
-        WHERE t.paid_date BETWEEN ? AND ?
         GROUP BY c.id
         ORDER BY c.id IS NULL, amount DESC, c.sort_order
         """,
-        (first, last),
+        (first, last, first, last),
     ).fetchall()
     by_category = tuple(
         CategoryTotal(

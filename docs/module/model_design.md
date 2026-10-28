@@ -25,7 +25,10 @@ Tsukena では、1件の支払いを複数のモジュールが順に受け渡�
 | `RecordOutcome`     | 1件の記録の試みの結果1つ                     | 保存した／重複で保存しなかった／削除済みで保存しなかった、の列挙         |
 | `MailMessage`       | Gmail のメール1通                            | メールの ID・送り主・件名・本文                                          |
 | `PaymentTiming`     | 支払い手段の支払い方1つ                      | 即時（`immediate`）／締めてから引き落とす（`card`）の列挙                 |
-| `PaymentRule`       | 支払い手段1つの締め日のルール                | 支払い手段・支払い方・締め日・引き落とし日・何か月後に引き落とすか        |
+| `PaymentRule`       | 支払い手段1つの締め日のルール                | 支払い手段・支払い方・締め日・引き落とし日・何か月後に引き落とすか・手数料率・リボの元金 |
+| `PaymentPlan`       | 支出1件の支払い方法1つ                       | 1回払い（`lump`）／スキップ／分割／リボ払いの列挙                         |
+| `Charge`            | 支出1件の、1回分の引き落とし                 | 何回目か・引き落とし日・元金・手数料・手数料を手で直したか               |
+| `RevolvingMonth`    | 支払い手段1つの、リボ払いのひと月分          | 月・引き落とし日・元金・手数料・手で直したか・残高                       |
 | `ParsedPayment`     | 記録する前の支払い1件                        | 利用日・時刻・金額・店名・支払い手段・入口・重複排除キー                 |
 | `CashEntry`         | Discord のメッセージ1件を分解した結果        | メモと金額                                                               |
 | `Classification`    | 1件の支払いに対する分類の結果                | 照合キー・カテゴリ・状態                                                 |
@@ -202,6 +205,8 @@ class PaymentRule:
     closing_day: int | None = None
     withdrawal_day: int | None = None
     withdrawal_month_offset: int | None = None
+    fee_rate: float | None = None
+    revolving_principal: int | None = None
 ```
 
 - フィールド一覧
@@ -213,13 +218,72 @@ class PaymentRule:
 | `closing_day`             | int \| None    | -    | 締め日（1〜31。31 は月末を表す）。即時なら `None`                    |
 | `withdrawal_day`          | int \| None    | -    | 引き落とし日（1〜31。31 は月末を表す）。即時なら `None`              |
 | `withdrawal_month_offset` | int \| None    | -    | 締めた月の何か月後に引き落とすか（1以上）。即時なら `None`           |
+| `fee_rate`                | float \| None  | -    | スキップ・分割・リボ払いの手数料の実質年率（%、0より大きく100未満）。`None` なら支払い方法を変えられない |
+| `revolving_principal`     | int \| None    | -    | リボ払いの毎月の元金（円、1以上）。`None` ならリボ払いにできない     |
 
 - 不変条件
   - 1件が、支払い手段1つの締め日のルールを表す。同じ支払い手段のルールは2つ存在しない。
+  - 即時（`IMMEDIATE`）なら、`fee_rate` と `revolving_principal` も `None` である。`revolving_principal` があるなら `fee_rate` もある（→ [design.md 7.2](../design.md#72-スキップ分割リボ払いの引き落とし)）。
   - 支払い手段（`payment_method`）は空文字にならず、`ParsedPayment` / `Transaction` の支払い手段と同じ文字列で照合する。
   - 支払い方（`timing`）が即時（`IMMEDIATE`）であることと、締め日・引き落とし日・何か月後かの3つがすべて `None` であることは同値である。締めてから引き落とす（`CARD`）ときは、3つとも `None` でない。
   - DB には保存しない。設定の読み込み（`config`）が設定ファイルから作る。
   - 本構造は支払日の計算の規則を持たない。計算は `paid_date` の設計書と [design.md 7.1 支払日の決め方](../design.md#71-支払日の決め方) で定める。
+
+
+### PaymentPlan
+
+- 定義
+```python
+class PaymentPlan(StrEnum):
+    LUMP = "lump"
+    SKIP = "skip"
+    INSTALLMENT = "installment"
+    REVOLVING = "revolving"
+```
+
+- 不変条件
+  - 1つの値が、支出1件の支払い方法を表す。値の文字列は `transactions.payment_plan` と API の `payment_plan` の値と一致する。
+
+
+### Charge
+
+- 定義
+```python
+@dataclass(frozen=True)
+class Charge:
+    seq: int
+    paid_date: date
+    principal: int
+    fee: int
+    fee_edited: bool = False
+
+    @property
+    def amount(self) -> int: ...  # principal + fee
+```
+
+- 不変条件
+  - 1件が、支出1件の1回分の引き落としを表す。`seq` は1から始まり、同じ支出の中で一意である。
+  - 元金（`principal`）と手数料（`fee`）は0以上の整数である。
+  - `fee_edited` は、スキップ・分割払いで手数料をアプリで直したときだけ `True` になる。リボ払いの直した手数料は `revolving_fees` に持つので、常に `False` である。
+
+
+### RevolvingMonth
+
+- 定義
+```python
+@dataclass(frozen=True)
+class RevolvingMonth:
+    month: str          # YYYY-MM
+    paid_date: date
+    principal: int
+    fee: int
+    fee_edited: bool
+    balance: int        # 引き落としのあとに残る元金
+```
+
+- 不変条件
+  - 1件が、支払い手段1つのリボ払いの、ひと月分の引き落とし（リボにした支出の全部の合計）を表す。
+  - DB には保存しない。リボ払いの支出と直した手数料から、その都度計算する（→ [design.md 7.2](../design.md#72-スキップ分割リボ払いの引き落とし)）。
 
 
 ### MailMessage
@@ -438,6 +502,11 @@ class Transaction:
     source_ref: str
     created_at: datetime
     updated_at: datetime
+    payment_plan: PaymentPlan = PaymentPlan.LUMP
+    plan_count: int | None = None
+    charges: tuple[Charge, ...] = ()
+
+    def effective_charges(self) -> tuple[Charge, ...]: ...
 ```
 
 - フィールド一覧
@@ -459,9 +528,14 @@ class Transaction:
 | `source_ref`     | str           | 〇   | 重複排除キー                                           |
 | `created_at`     | datetime      | 〇   | 作成日時（JST、タイムゾーン付き）                      |
 | `updated_at`     | datetime      | 〇   | 更新日時（JST、タイムゾーン付き）                      |
+| `payment_plan`   | PaymentPlan   | 〇   | 支払い方法。記録したときは 1回払い（`LUMP`）           |
+| `plan_count`     | int \| None   | -    | スキップなら繰り延べる月数、分割なら回数。ほかは `None` |
+| `charges`        | tuple[Charge, ...] | 〇 | 1回払い以外の、回の順の引き落とし。1回払いなら空     |
 
 - 不変条件
   - 1件が、保存済みの記録1件（`transactions` テーブルの1行）を表す。
+  - 1回払い以外では、`paid_date` は1回払いだったときの支払日で、引き落としの予定の起点である。`charges` の元金の合計は `amount` と一致する。
+  - `effective_charges()` は実際の引き落としを返す。1回払いなら、`paid_date` に `amount` の全部を払う1回分になる（→ [ADR-0011](../adr/0011-card-payment-plans.md)）。
   - 金額（`amount`）は1以上の整数である。
   - 時刻（`occurred_time`）は秒とマイクロ秒を0とし、タイムゾーンを持たない。
   - 支払日（`paid_date`）は利用日（`occurred_date`）より前にならない。記録したときはルールから計算した値であり、アプリで直したあとは直した値である。

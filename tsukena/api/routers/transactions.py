@@ -3,14 +3,13 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ...model.enum.status import Status
-from ...repositories.transaction_repository import (
-    fetch_transactions,
-    remove_transaction,
-)
+from ...repositories.transaction_repository import fetch_transactions
+from ...services.payment_plan_service import PlanNotAvailableError
 from ...services.transaction_service import (
     CategoryNotFoundError,
     InvalidPaidDateError,
     TransactionNotFoundError,
+    delete_transaction,
     modify_transaction,
 )
 from ..dependencies import APP_ONLY, APP_OR_BOT, MONTH_PATTERN, get_conn
@@ -55,15 +54,21 @@ def patch_transaction(
         raise HTTPException(
             status_code=400, detail="paid_date must not be before occurred_date"
         ) from None
+    except PlanNotAvailableError:
+        # 支払い方法を変えたあとで、設定から手数料率などを消した
+        raise HTTPException(
+            status_code=409,
+            detail="Payment plan is not available for this payment method",
+        ) from None
     return TransactionOut.from_model(transaction)
 
 
 @router.delete(
     "/transactions/{transaction_id}", status_code=204, dependencies=[APP_ONLY]
 )
-def delete_transaction(
+def delete_transaction_endpoint(
     transaction_id: int,
     conn: sqlite3.Connection = Depends(get_conn),  # noqa: B008
 ):
-    if not remove_transaction(conn, transaction_id):
+    if not delete_transaction(conn, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found")

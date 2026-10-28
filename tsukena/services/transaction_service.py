@@ -14,16 +14,18 @@ from ..repositories.category_repository import category_exists
 from ..repositories.merchant_rule_repository import upsert_merchant_rule
 from ..repositories.transaction_repository import (
     fetch_transaction,
+    remove_transaction,
     source_ref_exists,
     update_transaction,
+)
+from .payment_plan_service import (
+    TransactionNotFoundError,
+    rebuild_charges,
+    rebuild_revolving_after_delete,
 )
 from .recorder import JST, record_payment
 
 CASH_PAYMENT_METHOD = "現金"
-
-
-class TransactionNotFoundError(Exception):
-    pass
 
 
 class CategoryNotFoundError(Exception):
@@ -47,6 +49,7 @@ def modify_transaction(
     - merchant を送ると照合キーを作り直す。カテゴリと状態は変えない
     - memo は分類に使わないため、送っても照合キー・カテゴリ・状態は変えない
     - occurred_date だけを送ったときの支払日の計算し直しは、支払い手段のルールがまだ無いため行わない
+    - 1回払い以外の支出で金額か支払日を変えると、引き落としの予定を作り直す（手で直した手数料は消える）
     """
     current = fetch_transaction(conn, transaction_id)
     if current is None:
@@ -85,9 +88,21 @@ def modify_transaction(
     # 記録の修正とルールの学習は、片方だけが残らないよう1つのトランザクションで行う
     with conn:
         update_transaction(conn, updated)
+        rebuild_charges(conn, current, updated)
         if update.category_id is not None and merchant_key != "":
             upsert_merchant_rule(conn, merchant_key, update.category_id)
-    return updated
+    result = fetch_transaction(conn, transaction_id)
+    assert result is not None
+    return result
+
+
+def delete_transaction(conn: sqlite3.Connection, transaction_id: int) -> bool:
+    """記録を消す。リボ払いの支出なら、残りのリボ払いの引き落としを計算し直す"""
+    current = fetch_transaction(conn, transaction_id)
+    if current is None or not remove_transaction(conn, transaction_id):
+        return False
+    rebuild_revolving_after_delete(conn, current)
+    return True
 
 
 def record_cash(

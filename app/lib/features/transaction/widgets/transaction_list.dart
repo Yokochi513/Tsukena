@@ -7,11 +7,16 @@ class TransactionList extends StatelessWidget {
     super.key,
     required this.transactions,
     required this.categories,
+    this.month,
     this.onTap,
   });
 
   final List<Transaction> transactions;
   final Map<int, Category> categories;
+
+  /// 月で絞った明細なら、その月の初日。金額はその月の引き落とし額（分割の1回分など）を出す。
+  /// 月で絞らないとき（検索など）は null にし、支出の金額を出す
+  final DateTime? month;
   final ValueChanged<Transaction>? onTap;
 
   @override
@@ -38,6 +43,14 @@ class TransactionList extends StatelessWidget {
             final time = transaction.occurredTime;
             final date = _formatDate(transaction.occurredDate);
             final datetime = time == null ? date : '$date ${_formatTime(time)}';
+            final firstLine = [
+              datetime,
+              transaction.paymentMethod,
+              ?transaction.planLabelIn(month),
+            ].join(' ・ ');
+            final amount = month == null
+                ? transaction.amount
+                : transaction.amountIn(month!);
 
             return ListTile(
               onTap: onTap == null ? null : () => onTap!(transaction),
@@ -51,11 +64,11 @@ class TransactionList extends StatelessWidget {
               // メモがあれば、何を買ったか分かるよう2行目に出す
               subtitle: Text(
                 transaction.memo.isEmpty
-                    ? '$datetime ・ ${transaction.paymentMethod}'
-                    : '$datetime ・ ${transaction.paymentMethod}\n${transaction.memo}',
+                    ? firstLine
+                    : '$firstLine\n${transaction.memo}',
               ),
               trailing: Text(
-                '¥${_formatAmount(transaction.amount)}',
+                '¥${_formatAmount(amount)}',
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
