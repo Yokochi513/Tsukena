@@ -27,4 +27,4 @@ withdrawal_month_offset = 1
 # 2026年10月1日の利用分から 18.00%（それより前の利用分は 15.00% のカードがある）
 fee_rate = 18.0
 # MyJCB で設定している「お支払いコース」の元金に合わせる
-revolving_principal = 10000
+revolving_principal = 30000
